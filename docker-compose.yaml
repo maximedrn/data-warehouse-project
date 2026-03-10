@@ -1,0 +1,45 @@
+name: database-project
+
+services:
+
+  mysql:
+    image: mysql:9.6.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: database
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    restart: always
+    ports:
+      - "8081:8080"
+
+  pdi:
+    image: zhicwu/pdi-ce:8.0
+    container_name: pdi
+    platform: linux/amd64
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./etl:/data
+  pentaho-server:
+    image: oliveiha/pentaho-server:9.4.7_openjdk8
+    container_name: pentaho-server
+    platform: linux/amd64
+    ports:
+      - "8083:8080"
+    depends_on:
+      - mysql
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    ports:
+      - "8084:3000"
