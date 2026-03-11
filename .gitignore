@@ -7,7 +7,7 @@ Thumbs.db
 
 # Docker volumes
 data/database/
-data/etl/access/
+data/etl/access/*.mdb
 
 # Pentaho / ETL outputs
 etl/output/
