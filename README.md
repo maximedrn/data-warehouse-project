@@ -41,6 +41,22 @@ E --> F
 - Docker Compose
 - Visual Paradigm
 
+## Project structure explanation
+
+- **Adminer**: web-based database management tool to access the MySQL database,
+- **Pentaho Data Integration**: ETL tool to extract data from Access databases and load it into MySQL,
+- **Pentaho Server**: BI server to host the Mondrian ROLAP server and the reporting client.
+
+### Adminer credentials
+
+| Field    | Value       |
+|----------|-------------|
+| System   | MySQL       |
+| Server   | mysql       |
+| Username | root        |
+| Password | root        |
+| Database | database    |
+
 ## Start the infrastructure
 
 ```bash

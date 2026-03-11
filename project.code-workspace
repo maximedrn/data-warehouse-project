@@ -1,0 +1,13 @@
+
+{
+    "folders": [
+        {
+            "path": ".",
+            "name": "root"
+        },
+        {
+            "path": "config/mdb-loader",
+            "name": "mdb-loader"
+        }
+    ],
+}

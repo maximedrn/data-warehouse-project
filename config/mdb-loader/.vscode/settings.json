@@ -1,0 +1,33 @@
+{
+  "files.eol": "\n",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always",
+    "source.organizeImports": "always"
+  },
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder:mdb-loader}/types"
+  ],
+  "python.defaultInterpreterPath": "${workspaceFolder:mdb-loader}/.venv/bin/python",
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "always",
+      "source.organizeImports": "always"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "black-formatter.args": [
+    "--config=${workspaceFolder:mdb-loader}/pyproject.toml"
+  ],
+  "python.testing.pytestEnabled": true,
+  "ruff.codeAction.disableRuleComment": {
+    "enable": true
+  },
+  "ruff.codeAction.fixViolation": {
+    "enable": true
+  },
+  "python.analysis.typeCheckingMode": "strict",
+  "cSpell.words": []
+}
