@@ -1,3 +1,6 @@
+# Project related files
+.temp/
+
 # Operating system files
 .DS_Store
 Thumbs.db

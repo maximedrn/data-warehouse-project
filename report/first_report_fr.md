@@ -810,12 +810,12 @@ CREATE TABLE location (
 
 | Source | Table source        | `type`     | Champs source                                                                 | Champ cible                               |
 | ------ | ------------------- | ---------- | ----------------------------------------------------------------------------- | ----------------------------------------- |
-| BB     | `bb_vente_film`     | `'film'`   | `type_produit→sous_type`, `prix_inventaire`, `film_id`                        | `sous_type`, `prix_inventaire`, `film_id` |
-| BB     | `bb_vente_gadget`   | `'gadget'` | `type_gadget→sous_type`, `titre`, `prix_inventaire`                           | idem                                      |
-| MS     | `ms_copie_location` | `'film'`   | `type_copie→sous_type`, `film_id`                                             | idem                                      |
-| MS     | `ms_copie_vente`    | `'film'`   | `type_copie→sous_type`, `film_id`                                             | idem                                      |
-| MMM    | `mmm_vente_gadget`  | `'gadget'` | `type_gadget→sous_type`, `titre_gadget`, `prix_inventaire`, `date_inventaire` | idem                                      |
-| MMM    | `mmm_location_film` | `'film'`   | `film_ref_id→film.film_id`                                                    | `film_id`                                 |
+| BB     | `bb_vente_film`     | `'film'`   | `type_produit → sous_type`, `prix_inventaire`, `film_id`                        | `sous_type`, `prix_inventaire`, `film_id` |
+| BB     | `bb_vente_gadget`   | `'gadget'` | `type_gadget → sous_type`, `titre`, `prix_inventaire`                           | idem                                      |
+| MS     | `ms_copie_location` | `'film'`   | `type_copie → sous_type`, `film_id`                                             | idem                                      |
+| MS     | `ms_copie_vente`    | `'film'`   | `type_copie → sous_type`, `film_id`                                             | idem                                      |
+| MMM    | `mmm_vente_gadget`  | `'gadget'` | `type_gadget → sous_type`, `titre_gadget`, `prix_inventaire`, `date_inventaire` | idem                                      |
+| MMM    | `mmm_location_film` | `'film'`   | `film_ref_id → film.film_id`                                                    | `film_id`                                 |
 
 ### `vente`
 

@@ -68,7 +68,7 @@ def compile_pdf(
     :rtype: None
     """
     working_directory.mkdir(parents=True, exist_ok=True)
-    download_tinytex(variation=2, download_folder=gettempdir())
+    download_tinytex(variation=2, download_folder=".temp")
 
     try:
         result: CompileResult = compile(  # type: ignore[no-any-unimported,misc]

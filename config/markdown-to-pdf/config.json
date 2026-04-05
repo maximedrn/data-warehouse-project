@@ -1,0 +1,27 @@
+{
+    "er": {
+        "diagramPadding": 40,
+        "useMaxWidth": true
+    },
+    "classDiagram": {
+        "diagramPadding": 40,
+        "useMaxWidth": true
+    },
+    "flowchart": {
+        "diagramPadding": 40,
+        "useMaxWidth": true
+    },
+    "sequence": {
+        "useMaxWidth": true
+    },
+    "gantt": {
+        "useMaxWidth": true
+    },
+    "themeVariables": {
+        "fontSize": "18px",
+        "nodeBorder": "#555555",
+        "clusterBorder": "#555555",
+        "lineColor": "#555555",
+        "classText": "#000000"
+    }
+}

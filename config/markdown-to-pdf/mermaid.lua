@@ -1,6 +1,9 @@
 local in_toc = false
 local counter = 0
 
+local script_directory = PANDOC_SCRIPT_FILE:match("(.*/)")
+local mermaid_config = script_directory .. "config.json"
+
 local function latex_escape(text)
   text = text:gsub("\\", "\\textbackslash{}")
   text = text:gsub("&", "\\&")
@@ -18,7 +21,7 @@ end
 local function render_mermaid(code, filename)
   local directory = os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp"
   local mermaid = directory .. "/" .. filename .. ".mmd"
-  local image = directory .. "/" .. filename .. ".png"
+  local pdf     = directory .. "/" .. filename .. ".pdf"
 
   local file = io.open(mermaid, "w")
   if not file then return nil end
@@ -26,8 +29,10 @@ local function render_mermaid(code, filename)
   file:close()
 
   local ok = os.execute(
-    "mmdc -i '" .. mermaid .. "' -o '" .. image
-    .. "' -b white --quiet 2>/dev/null"
+    "mmdc -i '" .. mermaid .. "' -o '" .. pdf
+    .. "' -b white --quiet -w 4000"
+    .. " -c '" .. mermaid_config .. "'"
+    .. " 2>/dev/null"
   )
   os.remove(mermaid)
 
@@ -35,7 +40,57 @@ local function render_mermaid(code, filename)
     io.stderr:write("mmdc failed for: " .. filename .. "\n")
     return nil
   end
-  return image
+
+  return pdf
+end
+
+function Table(element)
+  local function cell_to_latex(cell)
+    local string = pandoc.write(pandoc.Pandoc(cell.contents), "latex")
+    return string:gsub("%s+$", "")
+  end
+
+  local columns = {}
+  for i, column_spec in ipairs(element.colspecs) do
+    local align = column_spec[1]
+    if align == pandoc.AlignRight then
+      columns[i] = ">{\\raggedleft\\arraybackslash}X"
+    elseif align == pandoc.AlignCenter then
+      columns[i] = ">{\\centering\\arraybackslash}X"
+    else
+      columns[i] = ">{\\raggedright\\arraybackslash}X"
+    end
+  end
+
+  local lines = {}
+  lines[#lines + 1] = "\\begin{tabularx}{\\linewidth}{" .. table.concat(columns, " ") .. "}"
+  lines[#lines + 1] = "\\toprule"
+
+  if element.head and element.head.rows and #element.head.rows > 0 then
+    for _, row in ipairs(element.head.rows) do
+      local cells = {}
+      for _, cell in ipairs(row.cells) do
+        cells[#cells + 1] = "\\textbf{" .. cell_to_latex(cell) .. "}"
+      end
+      lines[#lines + 1] = table.concat(cells, " & ") .. " \\\\"
+    end
+    lines[#lines + 1] = "\\midrule"
+  end
+
+  for _, body in ipairs(element.bodies) do
+    for _, row in ipairs(body.body) do
+      local cells = {}
+      for _, cell in ipairs(row.cells) do
+        cells[#cells + 1] = cell_to_latex(cell)
+      end
+      lines[#lines + 1] = table.concat(cells, " & ") .. " \\\\"
+    end
+  end
+
+  lines[#lines + 1] = "\\bottomrule"
+  lines[#lines + 1] = "\\end{tabularx}"
+
+  return pandoc.RawBlock("latex", table.concat(lines, "\n"))
 end
 
 function CodeBlock(element)
@@ -46,8 +101,8 @@ function CodeBlock(element)
   if not image then return element end
 
   return pandoc.RawBlock("latex",
-    "\\begin{center}\\includegraphics[width=0.95\\textwidth]{"
-    .. image .. "}\\end{center}\n")
+    "\\begin{center}\\adjustbox{max width=0.95\\textwidth, max totalheight=0.9\\textheight}{\\includegraphics{"
+    .. image .. "}}\\end{center}\n")
 end
 
 function Header(element)

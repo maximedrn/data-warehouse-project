@@ -23,6 +23,7 @@
 \RequirePackage{titlesec}
 \RequirePackage{enumitem}
 \RequirePackage{graphicx}
+\RequirePackage{adjustbox}
 \RequirePackage{fancyhdr}
 
 \providecommand{\passthrough}[1]{#1}
