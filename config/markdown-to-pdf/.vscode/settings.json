@@ -1,0 +1,52 @@
+{
+  "files.eol": "\n",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always",
+    "source.organizeImports": "always"
+  },
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder:markdown-to-pdf}/types"
+  ],
+  "python.defaultInterpreterPath": "${workspaceFolder:markdown-to-pdf}/.venv/bin/python",
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "always",
+      "source.organizeImports": "always"
+    },
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
+  },
+  "black-formatter.args": [
+    "--config=${workspaceFolder:markdown-to-pdf}/pyproject.toml"
+  ],
+  "python.testing.pytestEnabled": true,
+  "ruff.codeAction.disableRuleComment": {
+    "enable": true
+  },
+  "ruff.codeAction.fixViolation": {
+    "enable": true
+  },
+  "python.analysis.typeCheckingMode": "strict",
+  "cSpell.words": [
+    "documentclass",
+    "includegraphics",
+    "lstinline",
+    "mati",
+    "mmdc",
+    "newpage",
+    "pandoc",
+    "pdflatex",
+    "pytinytex",
+    "rtype",
+    "tableofcontents",
+    "textasciicircum",
+    "textasciitilde",
+    "textbackslash",
+    "textbf",
+    "textunderscore",
+    "textwidth",
+    "tinytex"
+  ]
+}

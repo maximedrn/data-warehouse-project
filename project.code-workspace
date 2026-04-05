@@ -8,6 +8,16 @@
         {
             "path": "config/mdb-loader",
             "name": "mdb-loader"
+        },
+        {
+            "path": "config/markdown-to-pdf",
+            "name": "markdown-to-pdf"
         }
     ],
+    "settings": {
+        "cSpell.words": [
+            "rtype",
+            "textbf"
+        ]
+    },
 }
