@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<job>
+  <name>job_step10_extract_mmm</name>
+  <description>Extraction and reconceptualization of the MovieMegaMart source</description>
+  <entries>
+    <entry>
+      <name>START</name>
+      <type>SPECIAL</type>
+      <start>Y</start>
+      <GUI>
+        <xloc>50</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Rebuild mmm_client</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_mmm_client.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract mmm_movie_rental</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_mmm_movie_rental.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract mmm_movie_sale</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_mmm_movie_sale.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract mmm_gadget_sale</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_mmm_gadget_sale.ktr</filename>
+      <GUI>
+        <xloc>650</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>SUCCESS</name>
+      <type>SPECIAL</type>
+      <start>N</start>
+      <GUI>
+        <xloc>800</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+  </entries>
+  <hops>
+    <hop>
+      <from>START</from>
+      <to>Rebuild mmm_client</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Rebuild mmm_client</from>
+      <to>Extract mmm_movie_rental</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract mmm_movie_rental</from>
+      <to>Extract mmm_movie_sale</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract mmm_movie_sale</from>
+      <to>Extract mmm_gadget_sale</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract mmm_gadget_sale</from>
+      <to>SUCCESS</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+  </hops>
+</job>

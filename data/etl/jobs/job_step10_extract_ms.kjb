@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<job>
+  <name>job_step10_extract_ms</name>
+  <description>Extraction and reconceptualization of the MetroStarlet source</description>
+  <entries>
+    <entry>
+      <name>START</name>
+      <type>SPECIAL</type>
+      <start>Y</start>
+      <GUI>
+        <xloc>50</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract ms_movie</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_ms_movie.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract ms_actor</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_ms_actor.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract ms_appears_in</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_ms_appears_in.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract ms_client (T-prefix cleanup)</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_ms_client.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>150</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract ms_rental_copy</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_ms_rental_copy.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>150</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract ms_sale_copy</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_ms_sale_copy.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>150</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Extract ms_rental</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_extract_ms_rental.ktr</filename>
+      <GUI>
+        <xloc>650</xloc>
+        <yloc>150</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>SUCCESS</name>
+      <type>SPECIAL</type>
+      <start>N</start>
+      <GUI>
+        <xloc>800</xloc>
+        <yloc>150</yloc>
+      </GUI>
+    </entry>
+  </entries>
+  <hops>
+    <hop>
+      <from>START</from>
+      <to>Extract ms_movie</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract ms_movie</from>
+      <to>Extract ms_actor</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract ms_actor</from>
+      <to>Extract ms_appears_in</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract ms_appears_in</from>
+      <to>Extract ms_client (T-prefix cleanup)</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract ms_client (T-prefix cleanup)</from>
+      <to>Extract ms_rental_copy</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract ms_rental_copy</from>
+      <to>Extract ms_sale_copy</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract ms_sale_copy</from>
+      <to>Extract ms_rental</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract ms_rental</from>
+      <to>SUCCESS</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+  </hops>
+</job>

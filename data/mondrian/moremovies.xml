@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Schema name="MoreMovies">
+  <Dimension name="Time" type="TimeDimension">
+    <Hierarchy hasAll="true" allMemberName="All Periods" primaryKey="temps_id">
+      <Table name="dim_temps"/>
+      <Level name="Year" column="annee" type="Numeric" levelType="TimeYears" uniqueMembers="true"/>
+      <Level name="Quarter" column="trimestre" type="Numeric" levelType="TimeQuarters"
+        uniqueMembers="false" nameColumn="trimestre"
+        captionExpression="CONCAT('Q', `dim_temps`.`trimestre`)"/>
+      <Level name="Month" column="mois" type="Numeric" levelType="TimeMonths" uniqueMembers="false"
+        nameColumn="nom_mois" ordinalColumn="mois"/>
+      <Level name="Day" column="jour" type="Numeric" levelType="TimeDays" uniqueMembers="false"/>
+    </Hierarchy>
+  </Dimension>
+  <Dimension name="Product">
+    <Hierarchy hasAll="true" allMemberName="All Products" primaryKey="produit_id">
+      <Table name="dim_produit"/>
+      <Level name="Type" column="type" type="String" uniqueMembers="true"/>
+      <Level name="Subtype" column="sous_type" type="String" uniqueMembers="false"/>
+      <Level name="Product" column="produit_id" type="Numeric" uniqueMembers="true"
+        nameColumn="titre"/>
+    </Hierarchy>
+  </Dimension>
+  <Dimension name="Store">
+    <Hierarchy hasAll="true" allMemberName="All Stores" primaryKey="magasin_id">
+      <Table name="dim_magasin"/>
+      <Level name="Store" column="magasin_id" type="Numeric" uniqueMembers="true" nameColumn="nom"/>
+    </Hierarchy>
+  </Dimension>
+  <Dimension name="Client">
+    <Hierarchy name="By Age Group" hasAll="true" allMemberName="All Clients" primaryKey="client_id">
+      <Table name="dim_client"/>
+      <Level name="Age Group" column="tranche_age" type="String" uniqueMembers="true"/>
+      <Level name="Client" column="client_id" type="Numeric" uniqueMembers="true" nameColumn="nom"
+        captionExpression="CONCAT(`dim_client`.`prenom`, ' ', `dim_client`.`nom`)"/>
+    </Hierarchy>
+    <Hierarchy name="By Gender" hasAll="true" allMemberName="All Clients" primaryKey="client_id">
+      <Table name="dim_client"/>
+      <Level name="Gender" column="genre" type="String" uniqueMembers="true"/>
+      <Level name="Client" column="client_id" type="Numeric" uniqueMembers="true" nameColumn="nom"/>
+    </Hierarchy>
+  </Dimension>
+  <Cube name="Sales" defaultMeasure="Sales Revenue">
+    <Table name="fait_ventes"/>
+    <DimensionUsage name="Time" source="Time" foreignKey="temps_id"/>
+    <DimensionUsage name="Product" source="Product" foreignKey="produit_id"/>
+    <DimensionUsage name="Store" source="Store" foreignKey="magasin_id"/>
+    <DimensionUsage name="Client" source="Client" foreignKey="client_id"/>
+    <Measure name="Sales Revenue" column="ca_ventes" aggregator="sum" formatString="#,##0.00 €"
+      datatype="Numeric"/>
+    <Measure name="Inventory Cost" column="prix_inventaire_total" aggregator="sum"
+      formatString="#,##0.00 €" datatype="Numeric"/>
+    <Measure name="Gross Margin" column="marge" aggregator="sum" formatString="#,##0.00 €"
+      datatype="Numeric"/>
+    <Measure name="Number of Sales" column="nb_ventes" aggregator="sum" formatString="#,##0"
+      datatype="Integer"/>
+    <CalculatedMember name="Avg Revenue per Sale" dimension="Measures"
+      formula="[Measures].[Sales Revenue] / [Measures].[Number of Sales]" formatString="#,##0.00 €"/>
+    <CalculatedMember name="Margin Rate" dimension="Measures"
+      formula="[Measures].[Gross Margin] / [Measures].[Sales Revenue]" formatString="0.0%"/>
+    <AggName name="agg_ventes_mois_magasin">
+      <AggFactCount column="nb_ventes"/>
+      <AggMeasure name="[Measures].[Sales Revenue]" column="ca_total"/>
+      <AggMeasure name="[Measures].[Gross Margin]" column="marge_totale"/>
+      <AggMeasure name="[Measures].[Number of Sales]" column="nb_ventes"/>
+      <AggLevel name="[Time].[Year]" column="annee"/>
+      <AggLevel name="[Time].[Month]" column="mois"/>
+      <AggLevel name="[Store].[Store]" column="magasin_id"/>
+    </AggName>
+    <AggName name="agg_ventes_mois_produit">
+      <AggFactCount column="nb_ventes"/>
+      <AggMeasure name="[Measures].[Sales Revenue]" column="ca_total"/>
+      <AggMeasure name="[Measures].[Number of Sales]" column="nb_ventes"/>
+      <AggLevel name="[Time].[Year]" column="annee"/>
+      <AggLevel name="[Time].[Month]" column="mois"/>
+      <AggLevel name="[Product].[Product]" column="produit_id"/>
+      <AggLevel name="[Product].[Type]" column="type_produit"/>
+    </AggName>
+  </Cube>
+  <Cube name="Rentals" defaultMeasure="Rental Revenue">
+    <Table name="fait_locations"/>
+    <DimensionUsage name="Time" source="Time" foreignKey="temps_id"/>
+    <DimensionUsage name="Product" source="Product" foreignKey="produit_id"/>
+    <DimensionUsage name="Store" source="Store" foreignKey="magasin_id"/>
+    <DimensionUsage name="Client" source="Client" foreignKey="client_id"/>
+    <Measure name="Rental Revenue" column="ca_locations" aggregator="sum" formatString="#,##0.00 €"
+      datatype="Numeric"/>
+    <Measure name="Number of Rentals" column="nb_locations" aggregator="sum" formatString="#,##0"
+      datatype="Integer"/>
+    <Measure name="Total Rental Days" column="nb_jours_total" aggregator="sum" formatString="#,##0"
+      datatype="Integer"/>
+    <CalculatedMember name="Avg Revenue per Rental" dimension="Measures"
+      formula="[Measures].[Rental Revenue] / [Measures].[Number of Rentals]"
+      formatString="#,##0.00 €"/>
+    <CalculatedMember name="Avg Duration (days)" dimension="Measures"
+      formula="[Measures].[Total Rental Days] / [Measures].[Number of Rentals]"
+      formatString="#,##0.0"/>
+    <AggName name="agg_locations_mois_produit_magasin">
+      <AggFactCount column="nb_locations"/>
+      <AggMeasure name="[Measures].[Rental Revenue]" column="ca_total"/>
+      <AggMeasure name="[Measures].[Number of Rentals]" column="nb_locations"/>
+      <AggMeasure name="[Measures].[Total Rental Days]" column="nb_jours_total"/>
+      <AggLevel name="[Time].[Year]" column="annee"/>
+      <AggLevel name="[Time].[Month]" column="mois"/>
+      <AggLevel name="[Product].[Product]" column="produit_id"/>
+      <AggLevel name="[Store].[Store]" column="magasin_id"/>
+    </AggName>
+  </Cube>
+</Schema>

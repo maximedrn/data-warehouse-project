@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>transform_load_fact_sales</name>
+    <description>Load sales facts into the ROLAP warehouse</description>
+  </info>
+  <step>
+    <name>Read integrated sales</name>
+    <type>TableInput</type>
+    <connection>dst_integre</connection>
+    <sql>
+      SELECT
+      v.vente_id,
+      v.date_vente,
+      v.prix_vente AS ca_ventes,
+      p.prix_inventaire AS prix_inventaire_total,
+      v.est_neuf,
+      v.client_id,
+      v.produit_id,
+      v.magasin_id,
+      YEAR(v.date_vente) AS annee
+      FROM vente v
+      JOIN produit p ON p.produit_id = v.produit_id
+      WHERE v.date_vente IS NOT NULL
+      AND v.prix_vente IS NOT NULL
+    </sql>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Resolve temps_id</name>
+    <type>DatabaseLookup</type>
+    <connection>dst_rolap</connection>
+    <lookup>
+      <schema/>
+      <table>dim_temps</table>
+      <orderby/>
+      <fail_on_multiple>N</fail_on_multiple>
+      <eat_row_on_failure>N</eat_row_on_failure>
+      <cache>Y</cache>
+      <cache_size>50000</cache_size>
+      <key>
+        <name>date_vente</name>
+        <field>date_complete</field>
+        <condition>=</condition>
+      </key>
+      <value>
+        <name>temps_id</name>
+        <rename>temps_id</rename>
+        <default/>
+        <type>Integer</type>
+      </value>
+    </lookup>
+    <GUI>
+      <xloc>250</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Filter non-null temps_id</name>
+    <type>FilterRows</type>
+    <condition>
+      <negated>N</negated>
+      <leftvalue>temps_id</leftvalue>
+      <function>IS NOT NULL</function>
+    </condition>
+    <send_true_to>Insert into fact_sales</send_true_to>
+    <send_false_to>Log missing dates</send_false_to>
+    <GUI>
+      <xloc>450</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Insert into fact_sales</name>
+    <type>InsertUpdate</type>
+    <connection>dst_rolap</connection>
+    <table>fait_ventes</table>
+    <commit>1000</commit>
+    <lookup>
+      <key>
+        <name>vente_id</name>
+        <field>vente_id</field>
+        <condition>=</condition>
+      </key>
+    </lookup>
+    <values>
+      <value>
+        <name>temps_id</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>magasin_id</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>client_id</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>produit_id</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>annee</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>ca_ventes</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>prix_inventaire_total</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>nb_ventes</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>est_neuf</name>
+        <update>Y</update>
+      </value>
+    </values>
+    <GUI>
+      <xloc>650</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Log missing dates</name>
+    <type>WriteToLog</type>
+    <loglevel>log_level_error</loglevel>
+    <logmessage>Sale skipped: date_vente has no match in dim_temps: </logmessage>
+    <GUI>
+      <xloc>650</xloc>
+      <yloc>250</yloc>
+    </GUI>
+  </step>
+  <order>
+    <hop>
+      <from>Read integrated sales</from>
+      <to>Resolve temps_id</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Resolve temps_id</from>
+      <to>Filter non-null temps_id</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Filter non-null temps_id</from>
+      <to>Insert into fact_sales</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Filter non-null temps_id</from>
+      <to>Log missing dates</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+</transformation>

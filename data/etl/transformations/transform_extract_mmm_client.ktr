@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>transform_extract_mmm_client</name>
+    <description>MovieMegaMart client reconstruction from denormalized tables + deduplication</description>
+  </info>
+  <step>
+    <name>Read from movierentals</name>
+    <type>TableInput</type>
+    <connection>src_raw</connection>
+    <sql>
+      SELECT
+      TRIM(LEADING 'T' FROM cust_name) AS nom_complet_raw,
+      sex_male,
+      birthdate,
+      TRIM(LEADING 'T' FROM address) AS adresse
+      FROM moviemegamart_movierentals
+      WHERE cust_name IS NOT NULL
+    </sql>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>50</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Read from moviesales</name>
+    <type>TableInput</type>
+    <connection>src_raw</connection>
+    <sql>
+      SELECT
+      TRIM(LEADING 'T' FROM cust_name) AS nom_complet_raw,
+      sex_male,
+      birthdate,
+      NULL AS adresse
+      FROM moviemegamart_moviesales
+      WHERE cust_name IS NOT NULL
+    </sql>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Read from gadgetsales</name>
+    <type>TableInput</type>
+    <connection>src_raw</connection>
+    <sql>
+      SELECT
+      TRIM(LEADING 'T' FROM cust_name) AS nom_complet_raw,
+      sex_male,
+      birthdate,
+      NULL AS adresse
+      FROM moviemegamart_gadgetsales
+      WHERE cust_name IS NOT NULL
+    </sql>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>250</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Union of 3 sources</name>
+    <type>AppendStreams</type>
+    <GUI>
+      <xloc>250</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Parse name and gender</name>
+    <type>ScriptValueMod</type>
+    <jsScript>
+      <jsScript_item>
+        <jsScript_name>Parsing</jsScript_name>
+        <jsScript_script><![CDATA[
+// Gender
+var genre = (sex_male == 0) ? 'F' : 'M';
+
+// Parse name "FIRSTNAME I. LASTNAME" or "FIRSTNAME LASTNAME"
+var parts = nom_complet_raw.trim().split(/\s+/);
+var prenom = parts.length > 0 ? parts[0] : null;
+var initiale = null;
+var nom = null;
+if (parts.length == 3) {
+  initiale = parts[1]; // "I."
+  nom = parts[2];
+} else if (parts.length == 2) {
+  nom = parts[1];
+} else if (parts.length > 3) {
+  nom = parts[parts.length - 1];
+  initiale = parts[1];
+}
+
+// Birth date (MySQL DATE format or string)
+var date_naissance = birthdate;
+        ]]></jsScript_script>
+      </jsScript_item>
+    </jsScript>
+    <fields>
+      <field>
+        <name>genre</name>
+        <type>String</type>
+      </field>
+      <field>
+        <name>prenom</name>
+        <type>String</type>
+      </field>
+      <field>
+        <name>initiale</name>
+        <type>String</type>
+      </field>
+      <field>
+        <name>nom</name>
+        <type>String</type>
+      </field>
+      <field>
+        <name>date_naissance</name>
+        <type>Date</type>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>400</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Sort for deduplication</name>
+    <type>SortRows</type>
+    <fields>
+      <field>
+        <name>nom_complet_raw</name>
+        <ascending>Y</ascending>
+        <case_sensitive>N</case_sensitive>
+      </field>
+      <field>
+        <name>date_naissance</name>
+        <ascending>Y</ascending>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>550</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Deduplicate (full_name+birth_date)</name>
+    <type>Unique</type>
+    <fields>
+      <field>
+        <name>nom_complet_raw</name>
+        <case_insensitive>Y</case_insensitive>
+      </field>
+      <field>
+        <name>date_naissance</name>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>700</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Insert into mmm_client</name>
+    <type>TableOutput</type>
+    <connection>dst_mmm</connection>
+    <table>mmm_client</table>
+    <truncate>N</truncate>
+    <fields>
+      <field>
+        <column_name>nom_complet</column_name>
+        <stream_name>nom_complet_raw</stream_name>
+      </field>
+      <field>
+        <column_name>prenom</column_name>
+        <stream_name>prenom</stream_name>
+      </field>
+      <field>
+        <column_name>initiale</column_name>
+        <stream_name>initiale</stream_name>
+      </field>
+      <field>
+        <column_name>nom</column_name>
+        <stream_name>nom</stream_name>
+      </field>
+      <field>
+        <column_name>genre</column_name>
+        <stream_name>genre</stream_name>
+      </field>
+      <field>
+        <column_name>date_naissance</column_name>
+        <stream_name>date_naissance</stream_name>
+      </field>
+      <field>
+        <column_name>adresse</column_name>
+        <stream_name>adresse</stream_name>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>850</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <order>
+    <hop>
+      <from>Read from movierentals</from>
+      <to>Union of 3 sources</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Read from moviesales</from>
+      <to>Union of 3 sources</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Read from gadgetsales</from>
+      <to>Union of 3 sources</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Union of 3 sources</from>
+      <to>Parse name and gender</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Parse name and gender</from>
+      <to>Sort for deduplication</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Sort for deduplication</from>
+      <to>Deduplicate (full_name+birth_date)</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Deduplicate (full_name+birth_date)</from>
+      <to>Insert into mmm_client</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+</transformation>

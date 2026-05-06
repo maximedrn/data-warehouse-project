@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>transform_load_dim_client</name>
+    <description>Load Client dimension with age and age group computation</description>
+  </info>
+  <step>
+    <name>Read integrated clients</name>
+    <type>TableInput</type>
+    <connection>dst_integre</connection>
+    <sql>
+      SELECT
+      c.client_id,
+      c.prenom,
+      c.nom,
+      c.date_naissance,
+      c.genre,
+      c.magasin_id,
+      TIMESTAMPDIFF(YEAR, c.date_naissance, '2010-01-01') AS age_calcule
+      FROM client c
+      WHERE c.date_naissance IS NOT NULL
+      UNION ALL
+      SELECT
+      c.client_id,
+      c.prenom,
+      c.nom,
+      c.date_naissance,
+      c.genre,
+      c.magasin_id,
+      NULL AS age_calcule
+      FROM client c
+      WHERE c.date_naissance IS NULL
+    </sql>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Calculate age group</name>
+    <type>ScriptValueMod</type>
+    <jsScript>
+      <jsScript_item>
+        <jsScript_name>AgeGroup</jsScript_name>
+        <jsScript_script><![CDATA[
+var tranche_age = 'Unknown';
+if (age_calcule != null) {
+  var a = parseInt(age_calcule);
+  if      (a < 25)  tranche_age = '<25';
+  else if (a < 40)  tranche_age = '25-40';
+  else if (a < 60)  tranche_age = '40-60';
+  else              tranche_age = '>60';
+}
+        ]]></jsScript_script>
+      </jsScript_item>
+    </jsScript>
+    <fields>
+      <field>
+        <name>tranche_age</name>
+        <type>String</type>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>250</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Load into dim_client</name>
+    <type>InsertUpdate</type>
+    <connection>dst_rolap</connection>
+    <table>dim_client</table>
+    <commit>1000</commit>
+    <lookup>
+      <key>
+        <name>client_id</name>
+        <field>client_id</field>
+        <condition>=</condition>
+      </key>
+    </lookup>
+    <values>
+      <value>
+        <name>client_id</name>
+        <update>N</update>
+      </value>
+      <value>
+        <name>prenom</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>nom</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>date_naissance</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>age_calcule</name>
+        <rename>age</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>tranche_age</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>genre</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>magasin_id</name>
+        <update>Y</update>
+      </value>
+    </values>
+    <GUI>
+      <xloc>450</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <order>
+    <hop>
+      <from>Read integrated clients</from>
+      <to>Calculate age group</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Calculate age group</from>
+      <to>Load into dim_client</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+</transformation>

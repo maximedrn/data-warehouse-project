@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>transform_integrate_movie</name>
+    <description>BB+MS movie merge into the integrated schema</description>
+  </info>
+  <step>
+    <name>Read ms_movie</name>
+    <type>TableInput</type>
+    <connection>dst_ms</connection>
+    <sql>
+      SELECT
+      f.source_id AS ms_source_id,
+      f.titre,
+      f.annee_production,
+      f.date_sortie,
+      f.prix_sortie,
+      f.realisateur,
+      f.scenariste,
+      LOWER(REGEXP_REPLACE(f.titre, '[^a-z0-9]', '')) AS titre_normalise
+      FROM ms_film f
+    </sql>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>50</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Insert MS movies into movie</name>
+    <type>InsertUpdate</type>
+    <connection>dst_integre</connection>
+    <table>film</table>
+    <commit>500</commit>
+    <lookup>
+    </lookup>
+    <values>
+      <value>
+        <name>titre</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>annee_production</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>date_sortie</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>prix_sortie</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>realisateur</name>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>scenariste</name>
+        <update>Y</update>
+      </value>
+    </values>
+    <GUI>
+      <xloc>300</xloc>
+      <yloc>50</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Read bb_movie</name>
+    <type>TableInput</type>
+    <connection>dst_bb</connection>
+    <sql>
+      SELECT
+      f.film_id AS bb_film_id,
+      f.titre,
+      f.annee AS annee_production,
+      LOWER(REGEXP_REPLACE(f.titre, '[^a-z0-9]', '')) AS titre_normalise
+      FROM bb_film f
+    </sql>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>200</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Look up match in movie</name>
+    <type>DatabaseJoin</type>
+    <connection>dst_integre</connection>
+    <sql>
+      SELECT film_id
+      FROM film
+      WHERE LOWER(REGEXP_REPLACE(titre, '[^a-z0-9]', '')) = ?
+      LIMIT 1
+    </sql>
+    <rowlimit>1</rowlimit>
+    <parameters>
+      <parameter>
+        <name>titre_normalise</name>
+        <io>IN</io>
+      </parameter>
+    </parameters>
+    <GUI>
+      <xloc>250</xloc>
+      <yloc>200</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Filter BB movies with no match</name>
+    <type>FilterRows</type>
+    <condition>
+      <negated>N</negated>
+      <leftvalue>film_id</leftvalue>
+      <function>IS NULL</function>
+    </condition>
+    <send_true_to>Insert BB movies into movie</send_true_to>
+    <send_false_to>Skip (already in MS)</send_false_to>
+    <GUI>
+      <xloc>450</xloc>
+      <yloc>200</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Insert BB movies into movie</name>
+    <type>TableOutput</type>
+    <connection>dst_integre</connection>
+    <table>film</table>
+    <truncate>N</truncate>
+    <fields>
+      <field>
+        <column_name>titre</column_name>
+        <stream_name>titre</stream_name>
+      </field>
+      <field>
+        <column_name>annee_production</column_name>
+        <stream_name>annee_production</stream_name>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>650</xloc>
+      <yloc>200</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Skip (already in MS)</name>
+    <type>Dummy</type>
+    <GUI>
+      <xloc>650</xloc>
+      <yloc>300</yloc>
+    </GUI>
+  </step>
+  <order>
+    <hop>
+      <from>Read ms_movie</from>
+      <to>Insert MS movies into movie</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Read bb_movie</from>
+      <to>Look up match in movie</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Look up match in movie</from>
+      <to>Filter BB movies with no match</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Filter BB movies with no match</from>
+      <to>Insert BB movies into movie</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Filter BB movies with no match</from>
+      <to>Skip (already in MS)</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+</transformation>

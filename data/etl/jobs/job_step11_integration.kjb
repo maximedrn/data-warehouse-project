@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<job>
+  <name>job_step11_integration</name>
+  <description>Integration of the 3 reconceptualized sources into the integrated schema db_integre</description>
+  <entries>
+    <entry>
+      <name>START</name>
+      <type>SPECIAL</type>
+      <start>Y</start>
+      <GUI>
+        <xloc>50</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Integrate movies (BB+MS merge)</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_integrate_movie.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Integrate actors (BB+MS merge)</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_integrate_actors.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Integrate appears_in</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_integrate_appears_in.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Integrate clients</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_integrate_clients.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>200</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Integrate products</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_integrate_products.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>200</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Integrate sales</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_integrate_sales.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>200</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Integrate rentals</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_integrate_rentals.ktr</filename>
+      <GUI>
+        <xloc>650</xloc>
+        <yloc>200</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>SUCCESS</name>
+      <type>SPECIAL</type>
+      <start>N</start>
+      <GUI>
+        <xloc>800</xloc>
+        <yloc>200</yloc>
+      </GUI>
+    </entry>
+  </entries>
+  <hops>
+    <hop>
+      <from>START</from>
+      <to>Integrate movies (BB+MS merge)</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Integrate movies (BB+MS merge)</from>
+      <to>Integrate actors (BB+MS merge)</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Integrate actors (BB+MS merge)</from>
+      <to>Integrate appears_in</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Integrate appears_in</from>
+      <to>Integrate clients</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Integrate clients</from>
+      <to>Integrate products</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Integrate products</from>
+      <to>Integrate sales</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Integrate sales</from>
+      <to>Integrate rentals</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Integrate rentals</from>
+      <to>SUCCESS</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+  </hops>
+</job>

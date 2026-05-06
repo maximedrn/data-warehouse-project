@@ -8,11 +8,11 @@ from logging import INFO, Logger, basicConfig, getLogger
 from pathlib import Path
 from re import Match, sub
 from shutil import copy, move, rmtree
-from tempfile import gettempdir, mkdtemp
+from tempfile import mkdtemp
 from typing import cast
 
 from pypandoc import convert_text, get_pandoc_path, download_pandoc  # type: ignore[import-untyped]
-from pytinytex import CompileResult, compile, download_tinytex  # type: ignore[import-untyped]
+from pytinytex import CompileResult, compile as compile_tinytex, download_tinytex  # type: ignore[import-untyped]
 
 basicConfig(level=INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger: Logger = getLogger(__name__)
@@ -28,18 +28,12 @@ class Arguments(Namespace):
 
 def parse_args() -> Arguments:
     """Parse CLI arguments.
-    
+
     :returns: Parsed arguments.
     :rtype: Arguments
     """
-    parser = ArgumentParser(
-        description="Convert Markdown to PDF via pypandoc + LaTeX."
-    )
-    parser.add_argument(
-        "--input",
-        type=Path,
-        help="Input Markdown file"
-    )
+    parser = ArgumentParser(description="Convert Markdown to PDF via pypandoc + LaTeX.")
+    parser.add_argument("--input", type=Path, help="Input Markdown file")
     parser.add_argument(
         "--output",
         nargs="?",
@@ -54,13 +48,9 @@ def parse_args() -> Arguments:
     return parser.parse_args(namespace=Arguments())
 
 
-def compile_pdf(
-    tex_path: Path,
-    output_pdf: Path,
-    working_directory: Path
-) -> None:
+def compile_pdf(tex_path: Path, output_pdf: Path, working_directory: Path) -> None:
     """Compile `.tex` to PDF using PyTinyTeX.
-    
+
     :param Path tex_path: Path to the .tex file to compile.
     :param Path output_pdf: Desired output PDF path.
     :param Path working_directory: Directory to use for compilation.
@@ -71,7 +61,7 @@ def compile_pdf(
     download_tinytex(variation=2, download_folder=".temp")
 
     try:
-        result: CompileResult = compile(  # type: ignore[no-any-unimported,misc]
+        result: CompileResult = compile_tinytex(  # type: ignore[no-any-unimported,misc]
             str(tex_path),
             output_dir=str(working_directory),
             auto_install=True,
@@ -79,7 +69,7 @@ def compile_pdf(
         if result.pdf_path is None:  # type: ignore[misc]
             raise RuntimeError("Invalid PDF path result.")
     except Exception as exception:
-        raise RuntimeError(f"LaTeX compilation failed: {exception}")
+        raise RuntimeError("LaTeX compilation failed.") from exception
 
     generated_pdf: Path = Path(result.pdf_path)  # type: ignore[misc]
     if not generated_pdf.exists():
@@ -89,7 +79,7 @@ def compile_pdf(
 
 def main() -> None:
     """Entry point.
-    
+
     :returns: None
     :rtype: None
     """
@@ -130,24 +120,29 @@ def main() -> None:
             return match.group(0).replace("\\_", "_")
 
         latex_body: str = sub(
-            r"\\lstinline!.*?!", 
-            _fix_lstinline, 
-            cast(str, convert_text(
-                raw_md,
-                "latex",
-                format="md",
-                extra_args=extra_args,
-            ))
+            r"\\lstinline!.*?!",
+            _fix_lstinline,
+            cast(
+                str,
+                convert_text(
+                    raw_md,
+                    "latex",
+                    format="md",
+                    extra_args=extra_args,
+                ),
+            ),
         )
 
         # Assemble full document (.cls handles the preamble)
-        document: str = "\n".join([
-            f"\\documentclass{{{arguments.cls.stem}}}",
-            "",
-            "\\begin{document}",
-            latex_body,
-            "\\end{document}",
-        ])
+        document: str = "\n".join(
+            [
+                f"\\documentclass{{{arguments.cls.stem}}}",
+                "",
+                "\\begin{document}",
+                latex_body,
+                "\\end{document}",
+            ]
+        )
 
         tex_path: Path = working_directory / "document.tex"
         tex_path.write_text(document, encoding="utf-8")

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<job>
+  <name>job_step13_load_rolap</name>
+  <description>Loading the ROLAP warehouse from the integrated schema</description>
+  <entries>
+    <entry>
+      <name>START</name>
+      <type>SPECIAL</type>
+      <start>Y</start>
+      <GUI>
+        <xloc>50</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Load dim_store</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_load_dim_store.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Load dim_product</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_load_dim_product.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Load dim_client</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_load_dim_client.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>100</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Load fact_sales</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_load_fact_sales.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>250</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Load fact_rentals</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_load_fact_rentals.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>250</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>Populate aggregate tables</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transformations/transform_load_aggregates.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>250</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>SUCCESS</name>
+      <type>SPECIAL</type>
+      <start>N</start>
+      <GUI>
+        <xloc>650</xloc>
+        <yloc>250</yloc>
+      </GUI>
+    </entry>
+  </entries>
+  <hops>
+    <hop>
+      <from>START</from>
+      <to>Load dim_store</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Load dim_store</from>
+      <to>Load dim_product</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Load dim_product</from>
+      <to>Load dim_client</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Load dim_client</from>
+      <to>Load fact_sales</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Load fact_sales</from>
+      <to>Load fact_rentals</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Load fact_rentals</from>
+      <to>Populate aggregate tables</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Populate aggregate tables</from>
+      <to>SUCCESS</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+  </hops>
+</job>

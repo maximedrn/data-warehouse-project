@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>transform_extract_bb_client</name>
+    <description>BuckBoaster client extraction with deduplication</description>
+  </info>
+  <step>
+    <name>Read buckboaster_customer</name>
+    <type>TableInput</type>
+    <description>Read raw customer table</description>
+    <connection>src_raw</connection>
+    <sql>
+      SELECT
+      TRIM(LEADING 'T' FROM code) AS source_code,
+      TRIM(LEADING 'T' FROM firstname) AS prenom,
+      TRIM(LEADING 'T' FROM lastname) AS nom,
+      dob AS dob_raw,
+      sex AS sex_raw
+      FROM buckboaster_customer
+    </sql>
+    <limit>0</limit>
+    <lazy_conversion_active>N</lazy_conversion_active>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Clean gender and date</name>
+    <type>ScriptValueMod</type>
+    <description>Convert gender TFemale/TMale and parse date MM/DD/YY</description>
+    <jsScript>
+      <jsScript_item>
+        <jsScript_name>Cleaning</jsScript_name>
+        <jsScript_script><![CDATA[
+var genre = null;
+if (sex_raw != null) {
+  if (sex_raw.indexOf('Female') >= 0) genre = 'F';
+  else if (sex_raw.indexOf('Male') >= 0) genre = 'M';
+}
+
+var date_naissance = null;
+if (dob_raw != null && dob_raw.trim().length() > 0) {
+  var s = dob_raw.toString().trim();
+  // Format MM/DD/YY or MM/DD/YYYY
+  var parts = s.split('/');
+  if (parts.length == 3) {
+    var mm = parseInt(parts[0]);
+    var dd = parseInt(parts[1]);
+    var yy = parseInt(parts[2]);
+    if (yy < 100) yy = (yy >= 25) ? 1900 + yy : 2000 + yy;
+    date_naissance = new java.sql.Date(yy - 1900,  mm - 1, dd);
+  }
+}
+        ]]></jsScript_script>
+      </jsScript_item>
+    </jsScript>
+    <fields>
+      <field>
+        <name>genre</name>
+        <rename>genre</rename>
+        <type>String</type>
+      </field>
+      <field>
+        <name>date_naissance</name>
+        <rename>date_naissance</rename>
+        <type>Date</type>
+        <format>yyyy-MM-dd</format>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>200</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Select relevant fields</name>
+    <type>SelectValues</type>
+    <fields>
+      <field>
+        <name>source_code</name>
+      </field>
+      <field>
+        <name>prenom</name>
+      </field>
+      <field>
+        <name>nom</name>
+      </field>
+      <field>
+        <name>date_naissance</name>
+      </field>
+      <field>
+        <name>genre</name>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>350</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Sort for deduplication</name>
+    <type>SortRows</type>
+    <sort_size>1000000</sort_size>
+    <free_memory>25%</free_memory>
+    <compress>N</compress>
+    <fields>
+      <field>
+        <name>prenom</name>
+        <ascending>Y</ascending>
+        <case_sensitive>N</case_sensitive>
+      </field>
+      <field>
+        <name>nom</name>
+        <ascending>Y</ascending>
+        <case_sensitive>N</case_sensitive>
+      </field>
+      <field>
+        <name>date_naissance</name>
+        <ascending>Y</ascending>
+      </field>
+      <field>
+        <name>source_code</name>
+        <ascending>Y</ascending>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>500</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Deduplicate (first_name+last_name+birth_date)</name>
+    <type>Unique</type>
+    <count_rows>N</count_rows>
+    <fields>
+      <field>
+        <name>prenom</name>
+        <case_insensitive>Y</case_insensitive>
+      </field>
+      <field>
+        <name>nom</name>
+        <case_insensitive>Y</case_insensitive>
+      </field>
+      <field>
+        <name>date_naissance</name>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>650</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Insert into bb_client</name>
+    <type>TableOutput</type>
+    <connection>dst_bb</connection>
+    <schema/>
+    <table>bb_client</table>
+    <truncate>N</truncate>
+    <ignore_errors>N</ignore_errors>
+    <use_batch>Y</use_batch>
+    <write_to_file>N</write_to_file>
+    <fields>
+      <field>
+        <column_name>source_code</column_name>
+        <stream_name>source_code</stream_name>
+      </field>
+      <field>
+        <column_name>prenom</column_name>
+        <stream_name>prenom</stream_name>
+      </field>
+      <field>
+        <column_name>nom</column_name>
+        <stream_name>nom</stream_name>
+      </field>
+      <field>
+        <column_name>date_naissance</column_name>
+        <stream_name>date_naissance</stream_name>
+      </field>
+      <field>
+        <column_name>genre</column_name>
+        <stream_name>genre</stream_name>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>800</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <order>
+    <hop>
+      <from>Read buckboaster_customer</from>
+      <to>Clean gender and date</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Clean gender and date</from>
+      <to>Select relevant fields</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Select relevant fields</from>
+      <to>Sort for deduplication</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Sort for deduplication</from>
+      <to>Deduplicate (first_name+last_name+birth_date)</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Deduplicate (first_name+last_name+birth_date)</from>
+      <to>Insert into bb_client</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+</transformation>

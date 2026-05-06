@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>transform_load_aggregates</name>
+    <description>Compute and load the 3 ROLAP aggregate tables</description>
+  </info>
+  <step>
+    <name>Truncate agg_sales_month_store</name>
+    <type>ExecSQL</type>
+    <connection>dst_rolap</connection>
+    <sql>TRUNCATE TABLE agg_ventes_mois_magasin;</sql>
+    <execute_each_row>N</execute_each_row>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>50</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Calculate and insert agg_sales_month_store</name>
+    <type>ExecSQL</type>
+    <connection>dst_rolap</connection>
+    <sql>
+      INSERT INTO agg_ventes_mois_magasin (annee, mois, magasin_id, ca_total, marge_totale,
+      nb_ventes, nb_clients)
+      SELECT
+      t.annee,
+      t.mois,
+      f.magasin_id,
+      SUM(f.ca_ventes) AS ca_total,
+      SUM(f.marge) AS marge_totale,
+      SUM(f.nb_ventes) AS nb_ventes,
+      COUNT(DISTINCT f.client_id) AS nb_clients
+      FROM fait_ventes f
+      JOIN dim_temps t ON t.temps_id = f.temps_id
+      GROUP BY t.annee, t.mois, f.magasin_id;
+    </sql>
+    <execute_each_row>N</execute_each_row>
+    <GUI>
+      <xloc>250</xloc>
+      <yloc>50</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Truncate agg_sales_month_product</name>
+    <type>ExecSQL</type>
+    <connection>dst_rolap</connection>
+    <sql>TRUNCATE TABLE agg_ventes_mois_produit;</sql>
+    <execute_each_row>N</execute_each_row>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Calculate and insert agg_sales_month_product</name>
+    <type>ExecSQL</type>
+    <connection>dst_rolap</connection>
+    <sql>
+      INSERT INTO agg_ventes_mois_produit (annee, mois, produit_id, type_produit, ca_total,
+      nb_ventes)
+      SELECT
+      t.annee,
+      t.mois,
+      f.produit_id,
+      p.type AS type_produit,
+      SUM(f.ca_ventes) AS ca_total,
+      SUM(f.nb_ventes) AS nb_ventes
+      FROM fait_ventes f
+      JOIN dim_temps t ON t.temps_id = f.temps_id
+      JOIN dim_produit p ON p.produit_id = f.produit_id
+      GROUP BY t.annee, t.mois, f.produit_id, p.type;
+    </sql>
+    <execute_each_row>N</execute_each_row>
+    <GUI>
+      <xloc>250</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Truncate agg_rentals_month_product_store</name>
+    <type>ExecSQL</type>
+    <connection>dst_rolap</connection>
+    <sql>TRUNCATE TABLE agg_locations_mois_produit_magasin;</sql>
+    <execute_each_row>N</execute_each_row>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>250</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Calculate and insert agg_rentals</name>
+    <type>ExecSQL</type>
+    <connection>dst_rolap</connection>
+    <sql>
+      INSERT INTO agg_locations_mois_produit_magasin (annee, mois, produit_id, magasin_id, ca_total,
+      nb_locations, nb_jours_total)
+      SELECT
+      t.annee,
+      t.mois,
+      l.produit_id,
+      l.magasin_id,
+      SUM(l.ca_locations) AS ca_total,
+      SUM(l.nb_locations) AS nb_locations,
+      SUM(l.nb_jours_total) AS nb_jours_total
+      FROM fait_locations l
+      JOIN dim_temps t ON t.temps_id = l.temps_id
+      GROUP BY t.annee, t.mois, l.produit_id, l.magasin_id;
+    </sql>
+    <execute_each_row>N</execute_each_row>
+    <GUI>
+      <xloc>250</xloc>
+      <yloc>250</yloc>
+    </GUI>
+  </step>
+  <order>
+    <hop>
+      <from>Truncate agg_sales_month_store</from>
+      <to>Calculate and insert agg_sales_month_store</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Calculate and insert agg_sales_month_store</from>
+      <to>Truncate agg_sales_month_product</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Truncate agg_sales_month_product</from>
+      <to>Calculate and insert agg_sales_month_product</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Calculate and insert agg_sales_month_product</from>
+      <to>Truncate agg_rentals_month_product_store</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Truncate agg_rentals_month_product_store</from>
+      <to>Calculate and insert agg_rentals</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+</transformation>

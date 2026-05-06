@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation>
+  <info>
+    <name>transform_extract_ms_client</name>
+    <description>MetroStarlet client extraction with T-prefix cleanup on birthday</description>
+  </info>
+  <step>
+    <name>Read metrostarlet_customer</name>
+    <type>TableInput</type>
+    <connection>src_raw</connection>
+    <sql>
+      SELECT
+      code AS source_code,
+      TRIM(LEADING 'T' FROM name) AS prenom,
+      TRIM(LEADING 'T' FROM middlename) AS initiale,
+      TRIM(LEADING 'T' FROM surname) AS nom,
+      gender AS genre,
+      STR_TO_DATE(TRIM(LEADING 'T' FROM birthday), '%Y-%m-%d') AS date_naissance,
+      TRIM(LEADING 'T' FROM address) AS adresse
+      FROM metrostarlet_customer
+    </sql>
+    <limit>0</limit>
+    <GUI>
+      <xloc>50</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <step>
+    <name>Insert into ms_client</name>
+    <type>InsertUpdate</type>
+    <connection>dst_ms</connection>
+    <schema/>
+    <table>ms_client</table>
+    <commit>1000</commit>
+    <update_bypassed>N</update_bypassed>
+    <lookup>
+      <key>
+        <name>source_code</name>
+        <field>source_code</field>
+        <condition>=</condition>
+      </key>
+    </lookup>
+    <values>
+      <value>
+        <name>source_code</name>
+        <rename>source_code</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>prenom</name>
+        <rename>prenom</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>initiale</name>
+        <rename>initiale</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>nom</name>
+        <rename>nom</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>genre</name>
+        <rename>genre</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>date_naissance</name>
+        <rename>date_naissance</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>adresse</name>
+        <rename>adresse</rename>
+        <update>Y</update>
+      </value>
+    </values>
+    <GUI>
+      <xloc>300</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </step>
+  <order>
+    <hop>
+      <from>Read metrostarlet_customer</from>
+      <to>Insert into ms_client</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+</transformation>
