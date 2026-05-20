@@ -51,7 +51,6 @@ services:
     volumes:
       - ./data/pentaho:/etl
       - ./data/sources:/access
-      - ./data/pentaho/drivers:/usr/local/tomcat/lib:ro
       - ./data/pentaho/drivers:/usr/share/webspoon/kettle/plugins/databases
       - ./data/pentaho/drivers:/data-integration/lib/ext
 
