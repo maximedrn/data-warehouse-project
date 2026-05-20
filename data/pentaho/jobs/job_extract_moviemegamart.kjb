@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Job : job_extract_mmm
+  Source : MovieMegaMart (db_mmm)
+  Purpose : Extract and re-conceptualize every entity from the MovieMegaMart 
+    Access database into the re-conceptualized schema db_mmm.
+
+  Specificity of this source:
+    - No dedicated customer table in the raw Access database.
+      Client data is denormalized across 3 transaction tables (movierentals,
+      moviesales, gadgetsales) and must be reconstructed by UNION + 
+      de-duplication.
+    - sex_male column: 0 → F, 1 → M.
+    - cust_name format: "FIRSTNAME [I.] LASTNAME" — parsed in JavaScript.
+
+  Step order (sequential):
+    1. Rebuild mmm_client — UNION of 3 tables + name parsing + de-duplication 
+      on (full_name, dob)
+    2. Extract mmm_movie_rental — rental transactions
+    3. Extract mmm_movie_sale — film sales
+    4. Extract mmm_gadget_sale — gadget sales
+-->
+<job>
+  <name>job_extract_mmm</name>
+  <description>Extraction and re-conceptualization of the MovieMegaMart source</description>
+  <extended_description>Populates db_mmm from the raw Access data loaded by mdb-loader.
+    Clients are reconstructed from denormalized transaction tables and deduplicated on (nom_complet,
+    date_naissance).</extended_description>
+  <entries>
+    <entry>
+      <name>START</name>
+      <type>SPECIAL</type>
+      <start>Y</start>
+      <GUI>
+        <xloc>50</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <!--
+      Step 1: client reconstruction — UNION movierentals + moviesales 
+      + gadgetsales, parse name, de-duplication
+    -->
+    <entry>
+      <name>Rebuild mmm_client</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transforms/transform_extract_moviemegamart_customer.ktr</filename>
+      <GUI>
+        <xloc>200</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <!-- Step 2: rental transactions — date_from/date_to + daily price -->
+    <entry>
+      <name>Extract mmm_movie_rental</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transforms/transform_extract_mmm_movie_rental.ktr</filename>
+      <GUI>
+        <xloc>350</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <!--
+      Step 3: film sales — 10.6% of rows have prix_vente NULL (kept as-is)
+    -->
+    <entry>
+      <name>Extract mmm_movie_sale</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transforms/transform_extract_mmm_movie_sale.ktr</filename>
+      <GUI>
+        <xloc>500</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <!--
+      Step 4: gadget sales — prix_inventaire and date_inventaire available here
+    -->
+    <entry>
+      <name>Extract mmm_gadget_sale</name>
+      <type>TRANS</type>
+      <filename>${ETL_HOME}/transforms/transform_extract_mmm_gadget_sale.ktr</filename>
+      <GUI>
+        <xloc>650</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+    <entry>
+      <name>SUCCESS</name>
+      <type>SPECIAL</type>
+      <start>N</start>
+      <GUI>
+        <xloc>800</xloc>
+        <yloc>50</yloc>
+      </GUI>
+    </entry>
+  </entries>
+  <hops>
+    <hop>
+      <from>START</from>
+      <to>Rebuild mmm_client</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Rebuild mmm_client</from>
+      <to>Extract mmm_movie_rental</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract mmm_movie_rental</from>
+      <to>Extract mmm_movie_sale</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract mmm_movie_sale</from>
+      <to>Extract mmm_gadget_sale</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+    <hop>
+      <from>Extract mmm_gadget_sale</from>
+      <to>SUCCESS</to>
+      <enabled>Y</enabled>
+      <evaluation>Y</evaluation>
+    </hop>
+  </hops>
+</job>

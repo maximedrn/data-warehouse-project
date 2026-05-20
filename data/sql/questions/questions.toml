@@ -1,0 +1,24 @@
+[[questions]]
+name = "Q1 — Top Movies by Monthly Revenue"
+display = "bar"
+filename = "q1_top_movies_monthly_revenue.sql"
+
+[[questions]]
+name = "Q2 — Monthly Revenue by Store"
+display = "line"
+filename = "q2_monthly_revenue_by_store.sql"
+
+[[questions]]
+name = "Q3 — Renter Profile (Average Age M/F)"
+display = "bar"
+filename = "q3_renter_profile.sql"
+
+[[questions]]
+name = "Q4 — Most Rented Movies by Store"
+display = "table"
+filename = "q4_movies_rented_by_store.sql"
+
+[[questions]]
+name = "Q5 — Monthly Rental Trends"
+display = "line"
+filename = "q5_rental_trends.sql"

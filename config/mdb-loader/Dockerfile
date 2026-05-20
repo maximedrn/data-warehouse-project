@@ -13,7 +13,7 @@ WORKDIR /app
 RUN poetry install --no-root
 
 # Copy the main script into the container.
-COPY main.py .
+COPY . .
 
 # Set environment variables for the MySQL connection URL and the directory 
 # containing .mdb files.

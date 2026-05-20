@@ -1,7 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Job : job_extract_ms
+  Source : MetroStarlet (db_ms)
+  Purpose : Extract and re-conceptualize every entity from the MetroStarlet 
+    Access database into the re-conceptualized schema db_ms.
+
+  Key data quality issue: 100% of string columns have a spurious 'T' prefix in 
+  the raw Access export (e.g. "TJohn", "T1970-05-12").  Every transformation 
+  strips it.
+
+  Step order (sequential):
+    1. Extract ms_movie — full movie catalogue with metadata
+    2. Extract ms_actor — actor list
+    3. Extract ms_appears_in — movie-actor links
+    4. Extract ms_client — T-prefix cleanup on birthday + upsert on source_code
+    5. Extract ms_rental_copy — physical copies available for rent
+    6. Extract ms_sale_copy — copies sold (is_new flag retained)
+    7. Extract ms_rental — rental transactions (from_date, to_date, price_day)
+-->
 <job>
-  <name>job_step10_extract_ms</name>
-  <description>Extraction and reconceptualization of the MetroStarlet source</description>
+  <name>job_extract_ms</name>
+  <description>Extraction and re-conceptualization of the MetroStarlet source</description>
+  <extended_description>Populates db_ms from the raw Access data loaded by mdb-loader.
+    The pervasive T-prefix on all string/date columns is removed at every step.</extended_description>
   <entries>
     <entry>
       <name>START</name>
@@ -12,64 +33,82 @@
         <yloc>50</yloc>
       </GUI>
     </entry>
+    <!-- 
+      Step 1: full movie catalogue — richer metadata than BuckBoaster 
+      (director, writer, price)
+    -->
     <entry>
       <name>Extract ms_movie</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_extract_ms_movie.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_extract_ms_movie.ktr</filename>
       <GUI>
         <xloc>200</xloc>
         <yloc>50</yloc>
       </GUI>
     </entry>
+    <!-- Step 2: actor list -->
     <entry>
       <name>Extract ms_actor</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_extract_ms_actor.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_extract_ms_actor.ktr</filename>
       <GUI>
         <xloc>350</xloc>
         <yloc>50</yloc>
       </GUI>
     </entry>
+    <!-- Step 3: movie-actor associations -->
     <entry>
       <name>Extract ms_appears_in</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_extract_ms_appears_in.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_extract_ms_appears_in.ktr</filename>
       <GUI>
         <xloc>500</xloc>
         <yloc>50</yloc>
       </GUI>
     </entry>
+    <!-- 
+      Step 4: clients — T-prefix on all columns including birthday 
+      (STR_TO_DATE after strip)
+    -->
     <entry>
       <name>Extract ms_client (T-prefix cleanup)</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_extract_ms_client.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_extract_metrostarlet_customer.ktr</filename>
       <GUI>
         <xloc>200</xloc>
         <yloc>150</yloc>
       </GUI>
     </entry>
+    <!-- Step 5: rental copies — physical inventory available for rent -->
     <entry>
       <name>Extract ms_rental_copy</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_extract_ms_rental_copy.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_extract_ms_rental_copy.ktr</filename>
       <GUI>
         <xloc>350</xloc>
         <yloc>150</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 6: sale copies — copies that were sold (price + date + is_new flag)
+    -->
     <entry>
       <name>Extract ms_sale_copy</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_extract_ms_sale_copy.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_extract_ms_sale_copy.ktr</filename>
       <GUI>
         <xloc>500</xloc>
         <yloc>150</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 7: rental transactions — links copy → client with from/to dates 
+      and daily price
+    -->
     <entry>
       <name>Extract ms_rental</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_extract_ms_rental.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_extract_ms_rental.ktr</filename>
       <GUI>
         <xloc>650</xloc>
         <yloc>150</yloc>

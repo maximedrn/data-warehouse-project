@@ -37,20 +37,12 @@ Two architectures must be implemented:
 - **Pentaho Data Integration**: ETL tool to extract data from Access databases and load it into MySQL,
 - **Pentaho Server**: BI server to host the Mondrian ROLAP server and the reporting client.
 
-### Adminer credentials
-
-| Field    | Value       |
-|----------|-------------|
-| System   | MySQL       |
-| Server   | mysql       |
-| Username | root        |
-| Password | root        |
-| Database | database    |
-
 ### Start the infrastructure
 
+This command will start all services and load up the MySQL database with the Access databases.
+
 ```bash
-docker compose up -d -f docker-compose.yaml
+docker compose -f docker-compose.yaml up -d --build
 ```
 
 ## Microsoft Access Database Loader

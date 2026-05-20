@@ -1,0 +1,49 @@
+{
+  "files.eol": "\n",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always",
+    "source.organizeImports": "always"
+  },
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder:setup}/types"
+  ],
+  "python.defaultInterpreterPath": "${workspaceFolder:setup}/.venv/bin/python",
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "always",
+      "source.organizeImports": "always"
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "black-formatter.args": [
+    "--config=${workspaceFolder:setup}/pyproject.toml"
+  ],
+  "python.testing.pytestEnabled": true,
+  "ruff.codeAction.disableRuleComment": {
+    "enable": true
+  },
+  "ruff.codeAction.fixViolation": {
+    "enable": true
+  },
+  "python.analysis.typeCheckingMode": "strict",
+  "cSpell.words": [
+    "actsin",
+    "buckboaster",
+    "magasin",
+    "metabase",
+    "metrostarlet",
+    "mois",
+    "moviecopy",
+    "moviemegamart",
+    "msyscompacterror",
+    "nextset",
+    "pentaho",
+    "prefs",
+    "rolap",
+    "rtype",
+    "ventes"
+  ]
+}

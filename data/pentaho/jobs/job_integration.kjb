@@ -1,7 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Job : job_integration
+  Target : db_integre
+  Purpose : Merge the 3 re-conceptualized sources (db_bb, db_ms, db_mmm) into 
+    the unified integrated schema db_integre.
+
+  Integration strategy:
+    Movies — BB + MS merged by normalized title (lowercase, alphanumeric only).
+      MS records take priority as they carry richer metadata.
+    Actors — BB + MS merged by normalized name; MMM has no actor data.
+    Clients — NOT merged across sources (no reliable cross-source key).
+      Each source keeps its own client population; magasin_id identifies 
+      origin.
+    Products — One row per (titre, type, magasin_id); links back to 
+      integrated film.
+    Sales — Union of BB + MS + MMM sales, referenced to integrated 
+      products/clients.
+    Rentals — MS + MMM only (BuckBoaster has no rental business).
+
+  Step order (sequential — dependencies flow left to right):
+    1. Integrate movies — must run before actors/products/sales/rentals
+    2. Integrate actors — depends on step 1 (FK to film)
+    3. Integrate appears_in — depends on steps 1 and 2
+    4. Integrate clients — independent of movies, but needed by sales/rentals
+    5. Integrate products — depends on step 1 (film_id FK)
+    6. Integrate sales — depends on steps 4 and 5
+    7. Integrate rentals — depends on steps 4 and 5
+-->
 <job>
-  <name>job_step11_integration</name>
+  <name>job_integration</name>
   <description>Integration of the 3 reconceptualized sources into the integrated schema db_integre</description>
+  <extended_description>Merges db_bb, db_ms and db_mmm into db_integre.
+    Films from BB and MS are deduplicated on normalized title; MS metadata wins on conflict.
+    Clients are kept separate per source — no cross-source merge is attempted.</extended_description>
   <entries>
     <entry>
       <name>START</name>
@@ -12,64 +43,86 @@
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 1: movies — MS inserted first (richer); BB rows skipped when 
+      title already present
+    -->
     <entry>
       <name>Integrate movies (BB+MS merge)</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_integrate_movie.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_integrate_movie.ktr</filename>
       <GUI>
         <xloc>200</xloc>
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 2: actors — BB+MS merged on normalized name; FK to film already 
+      resolved
+    -->
     <entry>
       <name>Integrate actors (BB+MS merge)</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_integrate_actors.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_integrate_actors.ktr</filename>
       <GUI>
         <xloc>350</xloc>
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 3: movie-actor links — from both BB and MS, FK to integrated 
+      film + actor
+    -->
     <entry>
       <name>Integrate appears_in</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_integrate_appears_in.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_integrate_appears_in.ktr</filename>
       <GUI>
         <xloc>500</xloc>
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 4: clients — loaded per source with magasin_id tag; no cross-source
+      de-duplication
+    -->
     <entry>
       <name>Integrate clients</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_integrate_clients.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_integrate_clients.ktr</filename>
       <GUI>
         <xloc>200</xloc>
         <yloc>200</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 5: products — one row per (titre, type, magasin_id);
+      film_id resolved from step 1
+    -->
     <entry>
       <name>Integrate products</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_integrate_products.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_integrate_products.ktr</filename>
       <GUI>
         <xloc>350</xloc>
         <yloc>200</yloc>
       </GUI>
     </entry>
+    <!-- Step 6: sales — union of BB+MS+MMM film and gadget sales -->
     <entry>
       <name>Integrate sales</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_integrate_sales.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_integrate_sales.ktr</filename>
       <GUI>
         <xloc>500</xloc>
         <yloc>200</yloc>
       </GUI>
     </entry>
+    <!-- Step 7: rentals — MS and MMM only (BB has no rental activity) -->
     <entry>
       <name>Integrate rentals</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_integrate_rentals.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_integrate_rentals.ktr</filename>
       <GUI>
         <xloc>650</xloc>
         <yloc>200</yloc>

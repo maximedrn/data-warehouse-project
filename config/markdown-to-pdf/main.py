@@ -11,8 +11,16 @@ from shutil import copy, move, rmtree
 from tempfile import mkdtemp
 from typing import cast
 
-from pypandoc import convert_text, get_pandoc_path, download_pandoc  # type: ignore[import-untyped]
-from pytinytex import CompileResult, compile as compile_tinytex, download_tinytex  # type: ignore[import-untyped]
+from pypandoc import (  # type: ignore[import-untyped]
+    convert_text,
+    download_pandoc,
+    get_pandoc_path,
+)
+from pytinytex import (  # type: ignore[import-untyped]
+    CompileResult,
+    download_tinytex,
+)
+from pytinytex import compile as compile_tinytex
 
 basicConfig(level=INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger: Logger = getLogger(__name__)
@@ -32,7 +40,9 @@ def parse_args() -> Arguments:
     :returns: Parsed arguments.
     :rtype: Arguments
     """
-    parser = ArgumentParser(description="Convert Markdown to PDF via pypandoc + LaTeX.")
+    parser: ArgumentParser = ArgumentParser(
+        description="Convert Markdown to PDF via pypandoc + LaTeX."
+    )
     parser.add_argument("--input", type=Path, help="Input Markdown file")
     parser.add_argument(
         "--output",
@@ -48,11 +58,13 @@ def parse_args() -> Arguments:
     return parser.parse_args(namespace=Arguments())
 
 
-def compile_pdf(tex_path: Path, output_pdf: Path, working_directory: Path) -> None:
+def compile_pdf(
+    tex_file_path: Path, output_pdf_file: Path, working_directory: Path
+) -> None:
     """Compile `.tex` to PDF using PyTinyTeX.
 
-    :param Path tex_path: Path to the .tex file to compile.
-    :param Path output_pdf: Desired output PDF path.
+    :param Path tex_file_path: Path to the .tex file to compile.
+    :param Path output_pdf_file: Desired output PDF path.
     :param Path working_directory: Directory to use for compilation.
     :returns: None
     :rtype: None
@@ -62,7 +74,7 @@ def compile_pdf(tex_path: Path, output_pdf: Path, working_directory: Path) -> No
 
     try:
         result: CompileResult = compile_tinytex(  # type: ignore[no-any-unimported,misc]
-            str(tex_path),
+            str(tex_file_path),
             output_dir=str(working_directory),
             auto_install=True,
         )
@@ -74,7 +86,7 @@ def compile_pdf(tex_path: Path, output_pdf: Path, working_directory: Path) -> No
     generated_pdf: Path = Path(result.pdf_path)  # type: ignore[misc]
     if not generated_pdf.exists():
         raise RuntimeError("Compilation succeeded but PDF not found.")
-    move(generated_pdf, output_pdf)
+    move(generated_pdf, output_pdf_file)
 
 
 def main() -> None:
@@ -94,7 +106,7 @@ def main() -> None:
         logger.info("Downloading Pandoc...", exc_info=exception)
         download_pandoc()
 
-    lua_filter: Path = Path(__file__).parent / "mermaid.lua"
+    lua_filter: Path = Path(__file__).parent / "filters" / "pandoc_filter.lua"
 
     working_directory: Path = Path(mkdtemp())
     logger.info("Work directory: %s", working_directory)

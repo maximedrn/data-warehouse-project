@@ -1,7 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Job : job_load_rolap
+  Target : db_rolap
+  Purpose : Load the star-schema ROLAP warehouse from the integrated schema 
+    db_integre.
+
+  Star schema:
+    Dimensions: dim_temps (pre-populated 2005-2012), dim_magasin (static),
+      dim_produit, dim_client
+    Facts: fait_ventes (partitioned by year), fait_locations (partitioned by 
+      year)
+    Aggregates: agg_ventes_mois_magasin, agg_ventes_mois_produit,
+      agg_locations_mois_produit_magasin
+
+  Step order (sequential — dimensions before facts, aggregates last):
+    1. Load dim_store — static (already seeded in 05_rolap_warehouse.sql)
+    2. Load dim_product — from integrated produit table
+    3. Load dim_client — age + age_group computed from date_naissance 
+      vs 2010-01-01
+    4. Load fact_sales — resolves temps_id via dim_temps lookup
+    5. Load fact_rentals — resolves temps_id via dim_temps lookup
+    6. Populate aggregates — TRUNCATE+INSERT for all 3 aggregate tables
+
+  Note: dim_temps is intentionally skipped here (populated once by 
+    05_rolap_warehouse.sql).
+-->
 <job>
-  <name>job_step13_load_rolap</name>
+  <name>job_load_rolap</name>
   <description>Loading the ROLAP warehouse from the integrated schema</description>
+  <extended_description>Populates db_rolap star schema from db_integre.
+    Dimensions are loaded first, then fact tables (with dim_temps lookup for temps_id),
+    then aggregate tables are recalculated from scratch.</extended_description>
   <entries>
     <entry>
       <name>START</name>
@@ -12,55 +41,78 @@
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 1: dim_magasin — BuckBoaster(1), MetroStarlet(2), MovieMegaMart(3)
+    -->
     <entry>
       <name>Load dim_store</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_load_dim_store.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_load_dim_store.ktr</filename>
       <GUI>
         <xloc>200</xloc>
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 2: dim_produit — type='film' or 'gadget', linked to
+      integrated film_id
+    -->
     <entry>
       <name>Load dim_product</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_load_dim_product.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_load_dim_product.ktr</filename>
       <GUI>
         <xloc>350</xloc>
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 3: dim_client — age computed as of 2010-01-01 ref date; tranche_age
+      bucketed
+    -->
     <entry>
       <name>Load dim_client</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_load_dim_client.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_load_dim_customer.ktr</filename>
       <GUI>
         <xloc>500</xloc>
         <yloc>100</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 4: fait_ventes — upsert on vente_id; rows with no dim_temps match 
+      are logged
+    -->
     <entry>
       <name>Load fact_sales</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_load_fact_sales.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_load_fact_sales.ktr</filename>
       <GUI>
         <xloc>200</xloc>
         <yloc>250</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 5: fait_locations — MS and MMM rentals only;
+      revenue = price_day * nb_days
+    -->
     <entry>
       <name>Load fact_rentals</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_load_fact_rentals.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_load_fact_rentals.ktr</filename>
       <GUI>
         <xloc>350</xloc>
         <yloc>250</yloc>
       </GUI>
     </entry>
+    <!--
+      Step 6: recalculate all 3 aggregate tables
+      (TRUNCATE then INSERT … SELECT)
+    -->
     <entry>
       <name>Populate aggregate tables</name>
       <type>TRANS</type>
-      <filename>${ETL_HOME}/transformations/transform_load_aggregates.ktr</filename>
+      <filename>${ETL_HOME}/transforms/transform_load_aggregates.ktr</filename>
       <GUI>
         <xloc>500</xloc>
         <yloc>250</yloc>

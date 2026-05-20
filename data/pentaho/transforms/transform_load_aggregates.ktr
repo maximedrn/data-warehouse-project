@@ -1,12 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Transformation : transform_load_aggregates
+  Source  : db_rolap.fait_ventes, db_rolap.fait_locations, db_rolap.dim_temps,
+            db_rolap.dim_produit
+  Target  : db_rolap.agg_ventes_mois_magasin
+            db_rolap.agg_ventes_mois_produit
+            db_rolap.agg_locations_mois_produit_magasin
+  Purpose : Recalculate all three ROLAP aggregate tables from the fact tables.
+
+  Why aggregate tables?
+    MySQL does not support materialized views.  These tables pre-aggregate the
+    fact data at (year, month) granularity so that Mondrian can rewrite MDX
+    queries against them instead of scanning the full partitioned fact tables.
+    They are declared in the Mondrian schema via <AggName> elements.
+
+  Strategy: TRUNCATE then INSERT … SELECT for each table.
+    Each pair (Truncate → Calculate) runs sequentially via the hop chain.
+    This is safe because aggregates are always fully derivable from the facts.
+
+  Aggregate tables:
+    agg_ventes_mois_magasin          → answers monthly revenue by store (Q2, Q4)
+    agg_ventes_mois_produit          → answers top movies by monthly revenue (Q1)
+    agg_locations_mois_produit_magasin → answers rental trends by store (Q4, Q5)
+
+  Pipeline (sequential chain):
+    Truncate agg1 → Insert agg1 → Truncate agg2 → Insert agg2
+                                                  → Truncate agg3 → Insert agg3
+-->
 <transformation>
   <info>
     <name>transform_load_aggregates</name>
-    <description>Compute and load the 3 ROLAP aggregate tables</description>
+    <description>Recalculate all 3 ROLAP aggregate tables — TRUNCATE then INSERT SELECT for each</description>
   </info>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       AGGREGATE 1 — agg_ventes_mois_magasin
+       Grain: (annee, mois, magasin_id)
+       Measures: ca_total, marge_totale, nb_ventes, nb_clients
+  ════════════════════════════════════════════════════════════════════════════ -->
   <step>
     <name>Truncate agg_sales_month_store</name>
     <type>ExecSQL</type>
+    <description>Clear agg_ventes_mois_magasin before recalculation</description>
     <connection>dst_rolap</connection>
     <sql>TRUNCATE TABLE agg_ventes_mois_magasin;</sql>
     <execute_each_row>N</execute_each_row>
@@ -15,21 +50,23 @@
       <yloc>50</yloc>
     </GUI>
   </step>
+  <!-- GROUP BY (annee, mois, magasin_id) — marge is a generated column in fait_ventes -->
   <step>
     <name>Calculate and insert agg_sales_month_store</name>
     <type>ExecSQL</type>
+    <description>Aggregate fait_ventes by (annee, mois, magasin_id) — revenue, margin, sales count, distinct clients</description>
     <connection>dst_rolap</connection>
     <sql>
-      INSERT INTO agg_ventes_mois_magasin (annee, mois, magasin_id, ca_total, marge_totale,
-      nb_ventes, nb_clients)
+      INSERT INTO agg_ventes_mois_magasin
+        (annee, mois, magasin_id, ca_total, marge_totale, nb_ventes, nb_clients)
       SELECT
-      t.annee,
-      t.mois,
-      f.magasin_id,
-      SUM(f.ca_ventes) AS ca_total,
-      SUM(f.marge) AS marge_totale,
-      SUM(f.nb_ventes) AS nb_ventes,
-      COUNT(DISTINCT f.client_id) AS nb_clients
+        t.annee,
+        t.mois,
+        f.magasin_id,
+        SUM(f.ca_ventes)            AS ca_total,
+        SUM(f.marge)                AS marge_totale,
+        SUM(f.nb_ventes)            AS nb_ventes,
+        COUNT(DISTINCT f.client_id) AS nb_clients
       FROM fait_ventes f
       JOIN dim_temps t ON t.temps_id = f.temps_id
       GROUP BY t.annee, t.mois, f.magasin_id;
@@ -40,9 +77,17 @@
       <yloc>50</yloc>
     </GUI>
   </step>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       AGGREGATE 2 — agg_ventes_mois_produit
+       Grain: (annee, mois, produit_id)
+       Measures: ca_total, nb_ventes
+       Used by Mondrian for "top movies by monthly revenue" queries.
+  ════════════════════════════════════════════════════════════════════════════ -->
   <step>
     <name>Truncate agg_sales_month_product</name>
     <type>ExecSQL</type>
+    <description>Clear agg_ventes_mois_produit before recalculation</description>
     <connection>dst_rolap</connection>
     <sql>TRUNCATE TABLE agg_ventes_mois_produit;</sql>
     <execute_each_row>N</execute_each_row>
@@ -51,22 +96,24 @@
       <yloc>150</yloc>
     </GUI>
   </step>
+  <!-- type_produit denormalized here to avoid a join at query time in Mondrian -->
   <step>
     <name>Calculate and insert agg_sales_month_product</name>
     <type>ExecSQL</type>
+    <description>Aggregate fait_ventes by (annee, mois, produit_id) — type_produit denormalized for faster MDX</description>
     <connection>dst_rolap</connection>
     <sql>
-      INSERT INTO agg_ventes_mois_produit (annee, mois, produit_id, type_produit, ca_total,
-      nb_ventes)
+      INSERT INTO agg_ventes_mois_produit
+        (annee, mois, produit_id, type_produit, ca_total, nb_ventes)
       SELECT
-      t.annee,
-      t.mois,
-      f.produit_id,
-      p.type AS type_produit,
-      SUM(f.ca_ventes) AS ca_total,
-      SUM(f.nb_ventes) AS nb_ventes
+        t.annee,
+        t.mois,
+        f.produit_id,
+        p.type              AS type_produit,
+        SUM(f.ca_ventes)    AS ca_total,
+        SUM(f.nb_ventes)    AS nb_ventes
       FROM fait_ventes f
-      JOIN dim_temps t ON t.temps_id = f.temps_id
+      JOIN dim_temps   t ON t.temps_id   = f.temps_id
       JOIN dim_produit p ON p.produit_id = f.produit_id
       GROUP BY t.annee, t.mois, f.produit_id, p.type;
     </sql>
@@ -76,9 +123,17 @@
       <yloc>150</yloc>
     </GUI>
   </step>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       AGGREGATE 3 — agg_locations_mois_produit_magasin
+       Grain: (annee, mois, produit_id, magasin_id)
+       Measures: ca_total, nb_locations, nb_jours_total
+       Used by Mondrian for "most rented movies by store" queries.
+  ════════════════════════════════════════════════════════════════════════════ -->
   <step>
     <name>Truncate agg_rentals_month_product_store</name>
     <type>ExecSQL</type>
+    <description>Clear agg_locations_mois_produit_magasin before recalculation</description>
     <connection>dst_rolap</connection>
     <sql>TRUNCATE TABLE agg_locations_mois_produit_magasin;</sql>
     <execute_each_row>N</execute_each_row>
@@ -90,18 +145,19 @@
   <step>
     <name>Calculate and insert agg_rentals</name>
     <type>ExecSQL</type>
+    <description>Aggregate fait_locations by (annee, mois, produit_id, magasin_id) — revenue, rental count, total days</description>
     <connection>dst_rolap</connection>
     <sql>
-      INSERT INTO agg_locations_mois_produit_magasin (annee, mois, produit_id, magasin_id, ca_total,
-      nb_locations, nb_jours_total)
+      INSERT INTO agg_locations_mois_produit_magasin
+        (annee, mois, produit_id, magasin_id, ca_total, nb_locations, nb_jours_total)
       SELECT
-      t.annee,
-      t.mois,
-      l.produit_id,
-      l.magasin_id,
-      SUM(l.ca_locations) AS ca_total,
-      SUM(l.nb_locations) AS nb_locations,
-      SUM(l.nb_jours_total) AS nb_jours_total
+        t.annee,
+        t.mois,
+        l.produit_id,
+        l.magasin_id,
+        SUM(l.ca_locations)   AS ca_total,
+        SUM(l.nb_locations)   AS nb_locations,
+        SUM(l.nb_jours_total) AS nb_jours_total
       FROM fait_locations l
       JOIN dim_temps t ON t.temps_id = l.temps_id
       GROUP BY t.annee, t.mois, l.produit_id, l.magasin_id;
@@ -112,6 +168,7 @@
       <yloc>250</yloc>
     </GUI>
   </step>
+
   <order>
     <hop>
       <from>Truncate agg_sales_month_store</from>

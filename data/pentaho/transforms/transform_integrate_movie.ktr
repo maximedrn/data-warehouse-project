@@ -1,16 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Transformation : transform_integrate_movie
+  Sources : db_ms.ms_film, db_bb.bb_film
+  Target  : db_integre.film
+  Purpose : Merge movies from MetroStarlet and BuckBoaster into the unified film table.
+
+  Merge strategy:
+    1. MS movies are inserted first (richer metadata: director, writer, release price/date).
+    2. Each BB movie is looked up against the integrated table on a normalized title key
+       (lowercase, alphanumeric only: LOWER(REGEXP_REPLACE(titre, '[^a-z0-9]', ''))).
+    3. BB movies with no match are inserted (title + production year only).
+    4. BB movies that match an existing MS record are skipped (Dummy step).
+    MovieMegaMart has no movie catalogue — its film_id references are resolved later.
+
+  Pipeline (two parallel branches joined by the SUCCESS end):
+    Branch A: ms_film → InsertUpdate (film)
+    Branch B: bb_film → DatabaseJoin (lookup) → FilterRows → TableOutput | Dummy
+-->
 <transformation>
   <info>
     <name>transform_integrate_movie</name>
-    <description>BB+MS movie merge into the integrated schema</description>
+    <description>Merge BB+MS movies into db_integre.film — MS inserted first, BB deduplicated on normalized title</description>
   </info>
+  <!-- ── Branch A: MetroStarlet movies ──────────────────────────────────────
+       MS is the primary source: it carries the most complete metadata.
+       InsertUpdate (no lookup key) behaves as a plain insert here since film
+       starts empty; on re-run it updates existing rows safely.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Read ms_movie</name>
     <type>TableInput</type>
+    <description>Read full MS movie catalogue with metadata and pre-compute normalized title for later dedup</description>
     <connection>dst_ms</connection>
     <sql>
       SELECT
-      f.source_id AS ms_source_id,
+      f.source_id          AS ms_source_id,
       f.titre,
       f.annee_production,
       f.date_sortie,
@@ -28,9 +52,11 @@
   <step>
     <name>Insert MS movies into movie</name>
     <type>InsertUpdate</type>
+    <description>Upsert MS movies into db_integre.film — no lookup key means insert-only on first run</description>
     <connection>dst_integre</connection>
     <table>film</table>
     <commit>500</commit>
+    <!-- No lookup key: InsertUpdate acts as insert (film table is empty at this point) -->
     <lookup>
     </lookup>
     <values>
@@ -64,15 +90,20 @@
       <yloc>50</yloc>
     </GUI>
   </step>
+  <!-- ── Branch B: BuckBoaster movies ──────────────────────────────────────
+       BB only has title + year, so it only enriches the catalogue with movies
+       not already known from MS.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Read bb_movie</name>
     <type>TableInput</type>
+    <description>Read BB movie list — only titre and annee available (no director or pricing)</description>
     <connection>dst_bb</connection>
     <sql>
       SELECT
       f.film_id AS bb_film_id,
       f.titre,
-      f.annee AS annee_production,
+      f.annee   AS annee_production,
       LOWER(REGEXP_REPLACE(f.titre, '[^a-z0-9]', '')) AS titre_normalise
       FROM bb_film f
     </sql>
@@ -81,9 +112,11 @@
       <yloc>200</yloc>
     </GUI>
   </step>
+  <!-- Lookup: does this BB title already exist in the integrated table (from MS)? -->
   <step>
     <name>Look up match in movie</name>
     <type>DatabaseJoin</type>
+    <description>Check whether the BB normalized title already exists in db_integre.film (from MS branch)</description>
     <connection>dst_integre</connection>
     <sql>
       SELECT film_id
@@ -103,9 +136,11 @@
       <yloc>200</yloc>
     </GUI>
   </step>
+  <!-- Route: film_id IS NULL → new BB-only movie; film_id IS NOT NULL → already in MS -->
   <step>
     <name>Filter BB movies with no match</name>
     <type>FilterRows</type>
+    <description>Pass rows where film_id IS NULL (BB movie not in MS) to insert; skip the rest</description>
     <condition>
       <negated>N</negated>
       <leftvalue>film_id</leftvalue>
@@ -118,9 +153,11 @@
       <yloc>200</yloc>
     </GUI>
   </step>
+  <!-- Insert BB-only movies — titre and annee_production only (no richer metadata available) -->
   <step>
     <name>Insert BB movies into movie</name>
     <type>TableOutput</type>
+    <description>Insert BB movies not covered by MS — limited to titre and annee_production</description>
     <connection>dst_integre</connection>
     <table>film</table>
     <truncate>N</truncate>
@@ -139,9 +176,11 @@
       <yloc>200</yloc>
     </GUI>
   </step>
+  <!-- Discard BB movies that are already represented by an MS record -->
   <step>
     <name>Skip (already in MS)</name>
     <type>Dummy</type>
+    <description>Discard BB movies whose normalized title matches an existing MS record</description>
     <GUI>
       <xloc>650</xloc>
       <yloc>300</yloc>

@@ -1,19 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Transformation : transform_extract_mmm_client
+  Source  : database.moviemegamart_movierentals
+            database.moviemegamart_moviesales
+            database.moviemegamart_gadgetsales   (all raw Access imports)
+  Target  : db_mmm.mmm_client
+  Purpose : Reconstruct the missing customer table from denormalized transaction data.
+
+  MovieMegaMart has no dedicated customer table in the raw Access database.
+  Customer attributes are repeated in every transaction row — they must be
+  reconstructed by:
+    1. UNION of the three transaction tables (keeping only customer columns)
+    2. JavaScript parsing of cust_name ("FIRSTNAME [I.] LASTNAME")
+    3. Gender mapping: sex_male=0 → 'F', sex_male=1 → 'M'
+    4. Deduplication on (nom_complet_raw, date_naissance)
+
+  Pipeline:
+    TableInput×3 → AppendStreams → ScriptValueMod → SortRows → Unique → TableOutput
+-->
 <transformation>
   <info>
     <name>transform_extract_mmm_client</name>
-    <description>MovieMegaMart client reconstruction from denormalized tables + deduplication</description>
+    <description>MovieMegaMart client reconstruction from denormalized transaction tables + dedup on (nom_complet, date_naissance)</description>
   </info>
+  <!-- ── Steps 1-3 ───────────────────────────────────────────────────────────
+       Read customer columns from each of the three transaction tables.
+       Only movierentals carries an address field; the other two pass NULL.
+       WHERE cust_name IS NOT NULL guards against fully empty transaction rows.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Read from movierentals</name>
     <type>TableInput</type>
+    <description>Customer columns from movierentals — only source with address data</description>
     <connection>src_raw</connection>
     <sql>
       SELECT
       TRIM(LEADING 'T' FROM cust_name) AS nom_complet_raw,
       sex_male,
       birthdate,
-      TRIM(LEADING 'T' FROM address) AS adresse
+      TRIM(LEADING 'T' FROM address)   AS adresse
       FROM moviemegamart_movierentals
       WHERE cust_name IS NOT NULL
     </sql>
@@ -25,6 +50,7 @@
   <step>
     <name>Read from moviesales</name>
     <type>TableInput</type>
+    <description>Customer columns from moviesales — no address column in this table</description>
     <connection>src_raw</connection>
     <sql>
       SELECT
@@ -43,6 +69,7 @@
   <step>
     <name>Read from gadgetsales</name>
     <type>TableInput</type>
+    <description>Customer columns from gadgetsales — no address column in this table</description>
     <connection>src_raw</connection>
     <sql>
       SELECT
@@ -58,40 +85,57 @@
       <yloc>250</yloc>
     </GUI>
   </step>
+  <!-- ── Step 4 ─────────────────────────────────────────────────────────────
+       Append the three streams into one before deduplication.
+       All three streams share the same column structure (ensured by the NULLs above).
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Union of 3 sources</name>
     <type>AppendStreams</type>
+    <description>Merge movierentals, moviesales and gadgetsales customer rows into one stream</description>
     <GUI>
       <xloc>250</xloc>
       <yloc>150</yloc>
     </GUI>
   </step>
+  <!-- ── Step 5 ─────────────────────────────────────────────────────────────
+       Parse the raw cust_name string and map sex_male to a gender char.
+       Name formats observed in the data:
+         "FIRSTNAME LASTNAME"       (2 tokens)
+         "FIRSTNAME I. LASTNAME"    (3 tokens — middle initial)
+         "FIRSTNAME I. ... LASTNAME" (>3 tokens — keep first and last)
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Parse name and gender</name>
     <type>ScriptValueMod</type>
+    <description>Split cust_name into prenom/initiale/nom; map sex_male (0/1) to genre (F/M)</description>
     <jsScript>
       <jsScript_item>
         <jsScript_name>Parsing</jsScript_name>
         <jsScript_script><![CDATA[
-// Gender
+// sex_male: 0 = Female, 1 = Male
 var genre = (sex_male == 0) ? 'F' : 'M';
 
-// Parse name "FIRSTNAME I. LASTNAME" or "FIRSTNAME LASTNAME"
+// Parse "FIRSTNAME [I.] LASTNAME" — split on whitespace
 var parts = nom_complet_raw.trim().split(/\s+/);
-var prenom = parts.length > 0 ? parts[0] : null;
+var prenom   = parts.length > 0 ? parts[0] : null;
 var initiale = null;
-var nom = null;
-if (parts.length == 3) {
-  initiale = parts[1]; // "I."
-  nom = parts[2];
-} else if (parts.length == 2) {
+var nom      = null;
+
+if (parts.length == 2) {
+  // "FIRSTNAME LASTNAME"
   nom = parts[1];
-} else if (parts.length > 3) {
-  nom = parts[parts.length - 1];
+} else if (parts.length == 3) {
+  // "FIRSTNAME I. LASTNAME"
   initiale = parts[1];
+  nom      = parts[2];
+} else if (parts.length > 3) {
+  // Unexpected format — keep first token as prenom, last as nom
+  initiale = parts[1];
+  nom      = parts[parts.length - 1];
 }
 
-// Birth date (MySQL DATE format or string)
+// birthdate arrives as a MySQL DATE — pass through as-is
 var date_naissance = birthdate;
         ]]></jsScript_script>
       </jsScript_item>
@@ -123,9 +167,14 @@ var date_naissance = birthdate;
       <yloc>150</yloc>
     </GUI>
   </step>
+  <!-- ── Step 6 ─────────────────────────────────────────────────────────────
+       Sort required by the Unique step (PDI needs sorted input for dedup).
+       Case-insensitive on nom_complet_raw so "JOHN DOE" and "John Doe" collapse.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Sort for deduplication</name>
     <type>SortRows</type>
+    <description>Sort by (nom_complet_raw, date_naissance) — required before Unique step</description>
     <fields>
       <field>
         <name>nom_complet_raw</name>
@@ -142,9 +191,14 @@ var date_naissance = birthdate;
       <yloc>150</yloc>
     </GUI>
   </step>
+  <!-- ── Step 7 ─────────────────────────────────────────────────────────────
+       Remove duplicates — a customer appearing in multiple transaction tables
+       (e.g. rented AND bought) must produce only one row in mmm_client.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Deduplicate (full_name+birth_date)</name>
     <type>Unique</type>
+    <description>One row per (nom_complet_raw, date_naissance) — the only reliable natural key</description>
     <fields>
       <field>
         <name>nom_complet_raw</name>
@@ -159,9 +213,13 @@ var date_naissance = birthdate;
       <yloc>150</yloc>
     </GUI>
   </step>
+  <!-- ── Step 8 ─────────────────────────────────────────────────────────────
+       Insert the reconstructed, deduplicated customers into db_mmm.mmm_client.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Insert into mmm_client</name>
     <type>TableOutput</type>
+    <description>Write reconstructed and deduplicated customers into db_mmm.mmm_client</description>
     <connection>dst_mmm</connection>
     <table>mmm_client</table>
     <truncate>N</truncate>

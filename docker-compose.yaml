@@ -13,6 +13,9 @@ services:
       - "3307:3306"
     volumes:
       - ./data/database:/var/lib/mysql
+      # On a fresh volume (docker compose down -v), MySQL runs these scripts automatically.
+      # On an existing volume, they are ignored (initdb.d only fires on first boot).
+      - ./data/sql/05_rolap_warehouse.sql:/docker-entrypoint-initdb.d/05_rolap_warehouse.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
       interval: 5s
@@ -24,7 +27,7 @@ services:
     container_name: mdb-loader
     platform: linux/amd64
     volumes:
-      - ./data/etl/access:${MDB_DIRECTORY}
+      - ./data/sources:${MDB_DIRECTORY}
     environment:
       MYSQL_URL: ${MYSQL_URL}
       MDB_DIRECTORY: ${MDB_DIRECTORY}
@@ -46,10 +49,11 @@ services:
     ports:
       - "8085:8080"
     volumes:
-      - ./data/etl:/etl
-      - ./data/etl/access:/access
-      - ./data/etl/lib:/usr/share/webspoon/kettle/plugins/databases
-      - ./data/etl/lib:/data-integration/lib/ext
+      - ./data/pentaho:/etl
+      - ./data/sources:/access
+      - ./data/pentaho/drivers:/usr/local/tomcat/lib:ro
+      - ./data/pentaho/drivers:/usr/share/webspoon/kettle/plugins/databases
+      - ./data/pentaho/drivers:/data-integration/lib/ext
 
   pdi:
     image: zhicwu/pdi-ce:8.0
@@ -58,9 +62,9 @@ services:
     ports:
       - "8082:8080"
     volumes:
-      - ./data/tl/data:/data
-      - ./data/etl/access:/access
-      - ./data/etl/lib:/data-integration/lib/ext
+      - ./data/pentaho:/data
+      - ./data/sources:/access
+      - ./data/pentaho/drivers:/data-integration/lib/ext
 
   pentaho-server:
     image: oliveiha/pentaho-server:9.4.7_openjdk8
@@ -76,3 +80,22 @@ services:
     container_name: metabase
     ports:
       - "8084:3000"
+
+  setup:
+    build: config/setup
+    container_name: setup
+    platform: linux/amd64
+    restart: "no"
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mdb-loader:
+        condition: service_started
+      metabase:
+        condition: service_started
+      pentaho-server:
+        condition: service_started
+    volumes:
+      - ./data/sql:/sql:ro
+      - ./data/olap:/mondrian:ro

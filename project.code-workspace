@@ -5,6 +5,10 @@
             "name": "root"
         },
         {
+            "path": "config/setup",
+            "name": "setup"
+        },
+        {
             "path": "config/mdb-loader",
             "name": "mdb-loader"
         },
@@ -15,8 +19,7 @@
     ],
     "settings": {
         "cSpell.words": [
-            "rtype",
-            "textbf"
+            "ventes"
         ],
         "files.associations": {
             "*.ktr": "xml",
@@ -38,7 +41,7 @@
     "extensions": {
         "recommendations": [
             "redhat.vscode-xml",
-            "inferrinizzard.prettier-sql-vscode"
+            "inferrinizzard.prettier-sql-vscode",
         ]
     }
 }

@@ -29,24 +29,50 @@
     "enable": true
   },
   "python.analysis.typeCheckingMode": "strict",
+  "[lua]": {
+    "editor.defaultFormatter": "JohnnyMorganz.stylua",
+    "editor.formatOnSave": true
+  },
+  "stylua.configPath": "${workspaceFolder:markdown-to-pdf}/stylua.toml",
+  "Lua.runtime.version": "Lua 5.4",
+  "Lua.workspace.library": [
+    "${workspaceFolder:markdown-to-pdf}/types"
+  ],
+  "Lua.diagnostics.unusedLocalExclude": [
+    "_*"
+  ],
   "cSpell.words": [
+    "arraybackslash",
+    "booktabs",
+    "bottomrule",
+    "colspec",
+    "colspecs",
     "documentclass",
+    "gantt",
     "includegraphics",
+    "Inlines",
     "lstinline",
+    "Luacheck",
     "mati",
+    "midrule",
     "mmdc",
     "newpage",
     "pandoc",
     "pdflatex",
     "pytinytex",
+    "raggedleft",
+    "raggedright",
     "rtype",
     "tableofcontents",
+    "tabularx",
     "textasciicircum",
     "textasciitilde",
     "textbackslash",
     "textbf",
+    "textheight",
     "textunderscore",
     "textwidth",
-    "tinytex"
+    "tinytex",
+    "toprule"
   ]
 }

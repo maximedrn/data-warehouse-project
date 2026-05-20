@@ -1,22 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Transformation : transform_extract_ms_client
+  Source  : database.metrostarlet_customer  (raw Access import)
+  Target  : db_ms.ms_client
+  Purpose : Clean MetroStarlet customers and upsert them into db_ms.
+
+  Data quality issues handled:
+    - 100% of string/date columns carry a spurious 'T' prefix — stripped in SQL with
+      TRIM(LEADING 'T' FROM ...).
+    - birthday stored as VARCHAR "TYYYY-MM-DD" — prefix stripped then parsed with
+      STR_TO_DATE(..., '%Y-%m-%d').
+    - gender values are already clean single chars ('M'/'F') — passed through as-is.
+
+  An InsertUpdate (upsert on source_code) is used instead of a plain TableOutput so
+  that the transformation is idempotent on re-run.
+
+  Pipeline:
+    TableInput → InsertUpdate
+-->
 <transformation>
   <info>
     <name>transform_extract_ms_client</name>
-    <description>MetroStarlet client extraction with T-prefix cleanup on birthday</description>
+    <description>MetroStarlet client extraction: T-prefix cleanup on all columns + upsert on source_code</description>
   </info>
+  <!-- ── Step 1 ─────────────────────────────────────────────────────────────
+       Strip the T prefix from every string column in the raw Access table.
+       birthday is cleaned and parsed to DATE in the same query.
+       address is kept for potential address-quality analysis.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Read metrostarlet_customer</name>
     <type>TableInput</type>
+    <description>Read all MetroStarlet customers; strip T-prefix and parse birthday in-query</description>
     <connection>src_raw</connection>
     <sql>
       SELECT
       code AS source_code,
-      TRIM(LEADING 'T' FROM name) AS prenom,
+      TRIM(LEADING 'T' FROM name)       AS prenom,
       TRIM(LEADING 'T' FROM middlename) AS initiale,
-      TRIM(LEADING 'T' FROM surname) AS nom,
-      gender AS genre,
-      STR_TO_DATE(TRIM(LEADING 'T' FROM birthday), '%Y-%m-%d') AS date_naissance,
-      TRIM(LEADING 'T' FROM address) AS adresse
+      TRIM(LEADING 'T' FROM surname)    AS nom,
+      gender                            AS genre,
+      STR_TO_DATE(
+        TRIM(LEADING 'T' FROM birthday),
+        '%Y-%m-%d'
+      )                                 AS date_naissance,
+      TRIM(LEADING 'T' FROM address)    AS adresse
       FROM metrostarlet_customer
     </sql>
     <limit>0</limit>
@@ -25,15 +53,21 @@
       <yloc>100</yloc>
     </GUI>
   </step>
+  <!-- ── Step 2 ─────────────────────────────────────────────────────────────
+       Upsert into ms_client keyed on source_code.
+       All columns are updated on conflict so re-running is safe.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Insert into ms_client</name>
     <type>InsertUpdate</type>
+    <description>Upsert into db_ms.ms_client — idempotent on source_code</description>
     <connection>dst_ms</connection>
     <schema/>
     <table>ms_client</table>
     <commit>1000</commit>
     <update_bypassed>N</update_bypassed>
     <lookup>
+      <!-- Natural key: source_code matches the original Access sequential code -->
       <key>
         <name>source_code</name>
         <field>source_code</field>

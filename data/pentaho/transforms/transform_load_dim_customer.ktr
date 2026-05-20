@@ -1,33 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Transformation : transform_load_dim_client
+  Source  : db_integre.client
+  Target  : db_rolap.dim_client
+  Purpose : Load the Client dimension with computed age and age-group bucket.
+
+  Age computation:
+    Reference date: 2010-01-01 (mid-point of the 2005-2012 data window).
+    age       = TIMESTAMPDIFF(YEAR, date_naissance, '2010-01-01')
+    tranche_age buckets: <25 | 25-40 | 40-60 | >60
+    Clients without a birth date receive age=NULL and tranche_age='Unknown'.
+
+  Two UNION branches in the SQL allow the JavaScript step to receive a clean
+  integer (or NULL) for age rather than having to handle NULL inside the script.
+
+  Upsert on client_id keeps the step idempotent on re-run.
+
+  Pipeline:
+    TableInput → ScriptValueMod → InsertUpdate
+-->
 <transformation>
   <info>
     <name>transform_load_dim_client</name>
-    <description>Load Client dimension with age and age group computation</description>
+    <description>Load dim_client from db_integre.client — computes age (ref 2010-01-01) and tranche_age bucket</description>
   </info>
+  <!-- ── Step 1 ─────────────────────────────────────────────────────────────
+       Two UNION branches:
+         - Clients WITH date_naissance: TIMESTAMPDIFF gives an integer age.
+         - Clients WITHOUT date_naissance: age_calcule = NULL.
+       The split avoids NULL handling inside the JavaScript step.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Read integrated clients</name>
     <type>TableInput</type>
+    <description>Read all clients from db_integre; compute age vs 2010-01-01 for clients with a known birth date</description>
     <connection>dst_integre</connection>
     <sql>
+      -- Branch 1: clients with a known birth date → integer age computed
       SELECT
-      c.client_id,
-      c.prenom,
-      c.nom,
-      c.date_naissance,
-      c.genre,
-      c.magasin_id,
-      TIMESTAMPDIFF(YEAR, c.date_naissance, '2010-01-01') AS age_calcule
+        c.client_id,
+        c.prenom,
+        c.nom,
+        c.date_naissance,
+        c.genre,
+        c.magasin_id,
+        TIMESTAMPDIFF(YEAR, c.date_naissance, '2010-01-01') AS age_calcule
       FROM client c
       WHERE c.date_naissance IS NOT NULL
       UNION ALL
+      -- Branch 2: clients without a birth date → age_calcule = NULL
       SELECT
-      c.client_id,
-      c.prenom,
-      c.nom,
-      c.date_naissance,
-      c.genre,
-      c.magasin_id,
-      NULL AS age_calcule
+        c.client_id,
+        c.prenom,
+        c.nom,
+        c.date_naissance,
+        c.genre,
+        c.magasin_id,
+        NULL AS age_calcule
       FROM client c
       WHERE c.date_naissance IS NULL
     </sql>
@@ -36,9 +65,14 @@
       <yloc>100</yloc>
     </GUI>
   </step>
+  <!-- ── Step 2 ─────────────────────────────────────────────────────────────
+       Map integer age to one of four buckets.
+       NULL age → 'Unknown' (keeps the dimension complete for all clients).
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Calculate age group</name>
     <type>ScriptValueMod</type>
+    <description>Assign tranche_age bucket: &lt;25 | 25-40 | 40-60 | &gt;60 | Unknown</description>
     <jsScript>
       <jsScript_item>
         <jsScript_name>AgeGroup</jsScript_name>
@@ -46,10 +80,10 @@
 var tranche_age = 'Unknown';
 if (age_calcule != null) {
   var a = parseInt(age_calcule);
-  if      (a < 25)  tranche_age = '<25';
-  else if (a < 40)  tranche_age = '25-40';
-  else if (a < 60)  tranche_age = '40-60';
-  else              tranche_age = '>60';
+  if      (a < 25) tranche_age = '<25';
+  else if (a < 40) tranche_age = '25-40';
+  else if (a < 60) tranche_age = '40-60';
+  else             tranche_age = '>60';
 }
         ]]></jsScript_script>
       </jsScript_item>
@@ -65,9 +99,15 @@ if (age_calcule != null) {
       <yloc>100</yloc>
     </GUI>
   </step>
+  <!-- ── Step 3 ─────────────────────────────────────────────────────────────
+       Upsert into dim_client keyed on client_id (surrogate from db_integre).
+       age_calcule is renamed to 'age' to match the warehouse column name.
+       client_id is not updated (update=N) — it is the lookup key only.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Load into dim_client</name>
     <type>InsertUpdate</type>
+    <description>Upsert into db_rolap.dim_client keyed on client_id — idempotent on re-run</description>
     <connection>dst_rolap</connection>
     <table>dim_client</table>
     <commit>1000</commit>
@@ -95,6 +135,7 @@ if (age_calcule != null) {
         <name>date_naissance</name>
         <update>Y</update>
       </value>
+      <!-- age_calcule renamed to match the warehouse column -->
       <value>
         <name>age_calcule</name>
         <rename>age</rename>

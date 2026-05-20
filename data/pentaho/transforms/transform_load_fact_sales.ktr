@@ -1,37 +1,70 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Transformation : transform_load_fact_sales
+  Source  : db_integre.vente, db_integre.produit
+  Target  : db_rolap.fait_ventes
+  Purpose : Load the Sales fact table with a dim_temps surrogate key lookup.
+
+  Key design decisions:
+    - temps_id is resolved at load time via a cached DatabaseLookup on dim_temps
+      (date_complete = date_vente).  The dim_temps cache (50 000 rows) fits the
+      full 2005-2012 date range in memory.
+    - Rows where the sale date has no match in dim_temps are NOT inserted; they
+      are instead written to the PDI log at ERROR level for traceability.
+    - Upsert on vente_id keeps the step idempotent on re-run.
+    - prix_inventaire comes from produit (not from the sale row itself) because
+      BB/MMM sources embed it at the product level, not the transaction level.
+
+  Pipeline:
+    TableInput → DatabaseLookup → FilterRows → InsertUpdate
+                                             ↘ WriteToLog (missing dates)
+-->
 <transformation>
   <info>
     <name>transform_load_fact_sales</name>
-    <description>Load sales facts into the ROLAP warehouse</description>
+    <description>Load fait_ventes from db_integre — resolves temps_id via dim_temps cache; logs rows with unmatched dates</description>
   </info>
+  <!-- ── Step 1 ─────────────────────────────────────────────────────────────
+       Read all sales with a non-null date and price from the integrated schema.
+       prix_inventaire joined from produit (not always available on the sale row).
+       annee pre-computed here to avoid a derived column in the warehouse.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Read integrated sales</name>
     <type>TableInput</type>
+    <description>Read sales from db_integre.vente joined to produit for inventory price</description>
     <connection>dst_integre</connection>
     <sql>
       SELECT
-      v.vente_id,
-      v.date_vente,
-      v.prix_vente AS ca_ventes,
-      p.prix_inventaire AS prix_inventaire_total,
-      v.est_neuf,
-      v.client_id,
-      v.produit_id,
-      v.magasin_id,
-      YEAR(v.date_vente) AS annee
+        v.vente_id,
+        v.date_vente,
+        v.prix_vente        AS ca_ventes,
+        p.prix_inventaire   AS prix_inventaire_total,
+        v.est_neuf,
+        v.client_id,
+        v.produit_id,
+        v.magasin_id,
+        YEAR(v.date_vente)  AS annee
       FROM vente v
       JOIN produit p ON p.produit_id = v.produit_id
-      WHERE v.date_vente IS NOT NULL
-      AND v.prix_vente IS NOT NULL
+      WHERE v.date_vente  IS NOT NULL
+        AND v.prix_vente  IS NOT NULL
     </sql>
     <GUI>
       <xloc>50</xloc>
       <yloc>100</yloc>
     </GUI>
   </step>
+  <!-- ── Step 2 ─────────────────────────────────────────────────────────────
+       Resolve date_vente → temps_id via an in-memory cache of dim_temps.
+       Cache size 50 000 covers all distinct dates in the 2005-2012 window
+       (~2 920 rows) with ample headroom.
+       Rows with no match return NULL for temps_id (handled in step 3).
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Resolve temps_id</name>
     <type>DatabaseLookup</type>
+    <description>Look up temps_id in dim_temps for each sale date — cached for performance</description>
     <connection>dst_rolap</connection>
     <lookup>
       <schema/>
@@ -58,9 +91,15 @@
       <yloc>100</yloc>
     </GUI>
   </step>
+  <!-- ── Step 3 ─────────────────────────────────────────────────────────────
+       Split on temps_id:
+         IS NOT NULL → insert into fait_ventes (normal path)
+         IS NULL     → log at ERROR (sale date outside the 2005-2012 window)
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Filter non-null temps_id</name>
     <type>FilterRows</type>
+    <description>Route rows with a valid temps_id to insert; send unmatched dates to the error log</description>
     <condition>
       <negated>N</negated>
       <leftvalue>temps_id</leftvalue>
@@ -73,9 +112,14 @@
       <yloc>100</yloc>
     </GUI>
   </step>
+  <!-- ── Step 4a ────────────────────────────────────────────────────────────
+       Upsert into fait_ventes keyed on vente_id — idempotent on re-run.
+       nb_ventes is always 1 at the grain of this fact table (one row per sale).
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Insert into fact_sales</name>
     <type>InsertUpdate</type>
+    <description>Upsert into db_rolap.fait_ventes — one row per sale transaction</description>
     <connection>dst_rolap</connection>
     <table>fait_ventes</table>
     <commit>1000</commit>
@@ -129,9 +173,14 @@
       <yloc>100</yloc>
     </GUI>
   </step>
+  <!-- ── Step 4b ────────────────────────────────────────────────────────────
+       Log sales whose date falls outside the dim_temps range (2005-2012).
+       These rows are silently skipped from the warehouse but flagged for review.
+  ─────────────────────────────────────────────────────────────────────────── -->
   <step>
     <name>Log missing dates</name>
     <type>WriteToLog</type>
+    <description>Log sales skipped because date_vente has no match in dim_temps (outside 2005-2012)</description>
     <loglevel>log_level_error</loglevel>
     <logmessage>Sale skipped: date_vente has no match in dim_temps: </logmessage>
     <GUI>
